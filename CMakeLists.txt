@@ -15,6 +15,9 @@ add_executable(${TARGET_NAME}
         main.cpp
         net/TcpSocket.h
         net/TcpSocket.cpp
+        net/TcpSocket.h
+        net/TcpSocket.cpp
+        net/Channel.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE

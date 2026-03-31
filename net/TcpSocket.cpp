@@ -4,9 +4,9 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include <cstdio>
+#include <cerrno>
 #include <cstring>
 
 namespace lsy::net {
@@ -90,7 +90,7 @@ int TcpSocket::Create() {
     return 0;
 }
 
-bool TcpSocket::Bind(const std::string& ip, short port) {
+bool TcpSocket::Bind(const std::string& ip, short port) const {
     if (sockfd_ < 0) {
         fprintf(stderr, "bind error: socket not created\n");
         return false;
@@ -116,7 +116,7 @@ bool TcpSocket::Bind(const std::string& ip, short port) {
     return true;
 }
 
-bool TcpSocket::Listen(int backlog) {
+bool TcpSocket::Listen(int backlog) const {
     if (sockfd_ < 0) {
         fprintf(stderr, "listen error: socket not created\n");
         return false;
@@ -129,7 +129,7 @@ bool TcpSocket::Listen(int backlog) {
     return true;
 }
 
-int TcpSocket::Accept() {
+int TcpSocket::Accept() const {
     if (sockfd_ < 0) {
         fprintf(stderr, "accept error: socket not created\n");
         return -1;
@@ -157,7 +157,7 @@ void TcpSocket::Close() {
     }
 }
 
-void TcpSocket::ShutdownWrite() {
+void TcpSocket::ShutdownWrite() const {
     if (sockfd_ >= 0) {
         ::shutdown(sockfd_, SHUT_WR);
     }

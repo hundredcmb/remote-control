@@ -93,20 +93,20 @@ public:
      * @param port 待绑定的端口号
      * @return 绑定成功返回true，失败返回false
      */
-    bool Bind(const std::string& ip, short port);
+    bool Bind(const std::string& ip, short port) const;
 
     /**
      * @brief 监听套接字连接请求
      * @param backlog 监听队列的最大长度
      * @return 监听成功返回true，失败返回false
      */
-    bool Listen(int backlog);
+    bool Listen(int backlog) const;
 
     /**
      * @brief 接受客户端的TCP连接
      * @return 成功返回客户端套接字文件描述符，失败返回-1
      */
-    int Accept();
+    int Accept() const;
 
     /**
      * @brief 关闭套接字
@@ -119,7 +119,7 @@ public:
      * @details 关闭发送通道，保留接收通道，实现TCP优雅断开
      * @return 无返回值
      */
-    void ShutdownWrite();
+    void ShutdownWrite() const;
 
     /**
      * @brief 获取当前套接字文件描述符
