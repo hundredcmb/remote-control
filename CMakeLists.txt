@@ -20,6 +20,7 @@ add_executable(${TARGET_NAME}
         net/Channel.h
         net/BufferReader.h
         net/BufferWriter.h
+        net/Timer.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE
