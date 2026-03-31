@@ -18,6 +18,8 @@ add_executable(${TARGET_NAME}
         net/TcpSocket.h
         net/TcpSocket.cpp
         net/Channel.h
+        net/BufferReader.h
+        net/BufferWriter.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE
