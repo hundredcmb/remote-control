@@ -11,7 +11,7 @@
 
 namespace lsy::net {
 
-void SocketUtil::SetNonBlock(int sockfd) {
+void SocketUtil::SetNonBlock(SocketFd sockfd) {
     int flags = ::fcntl(sockfd, F_GETFL, 0);
     if (flags < 0) {
         fprintf(stderr, "fcntl F_GETFL error: %s\n", strerror(errno));
@@ -25,7 +25,7 @@ void SocketUtil::SetNonBlock(int sockfd) {
     }
 }
 
-void SocketUtil::SetBlock(int sockfd) {
+void SocketUtil::SetBlock(SocketFd sockfd) {
     int flags = ::fcntl(sockfd, F_GETFL, 0);
     if (flags < 0) {
         fprintf(stderr, "fcntl F_GETFL error: %s\n", strerror(errno));
@@ -39,7 +39,7 @@ void SocketUtil::SetBlock(int sockfd) {
     }
 }
 
-void SocketUtil::SetReuseAddr(int sockfd) {
+void SocketUtil::SetReuseAddr(SocketFd sockfd) {
     int optval = 1;
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval,
                          sizeof(optval));
@@ -48,7 +48,7 @@ void SocketUtil::SetReuseAddr(int sockfd) {
     }
 }
 
-void SocketUtil::SetReusePort(int sockfd) {
+void SocketUtil::SetReusePort(SocketFd sockfd) {
     int optval = 1;
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &optval,
                          sizeof(optval));
@@ -57,7 +57,7 @@ void SocketUtil::SetReusePort(int sockfd) {
     }
 }
 
-void SocketUtil::SetKeepAlive(int sockfd) {
+void SocketUtil::SetKeepAlive(SocketFd sockfd) {
     int optval = 1;
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &optval,
                          sizeof(optval));
@@ -66,14 +66,14 @@ void SocketUtil::SetKeepAlive(int sockfd) {
     }
 }
 
-void SocketUtil::SetSendBufSize(int sockfd, int size) {
+void SocketUtil::SetSendBufSize(SocketFd sockfd, int size) {
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
     if (ret < 0) {
         fprintf(stderr, "setsockopt SO_SNDBUF error: %s\n", strerror(errno));
     }
 }
 
-void SocketUtil::SetRecvBufSize(int sockfd, int size) {
+void SocketUtil::SetRecvBufSize(SocketFd sockfd, int size) {
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
     if (ret < 0) {
         fprintf(stderr, "setsockopt SO_RCVBUF error: %s\n", strerror(errno));
@@ -82,7 +82,8 @@ void SocketUtil::SetRecvBufSize(int sockfd, int size) {
 
 int TcpSocket::Create() {
     // 创建TCP套接字 + 非阻塞 + 执行exec时关闭（原子操作）
-    sockfd_ = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+    sockfd_ = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
+                       IPPROTO_TCP);
     if (sockfd_ < 0) {
         fprintf(stderr, "socket create error: %s\n", strerror(errno));
         return -1;
@@ -90,16 +91,15 @@ int TcpSocket::Create() {
     return 0;
 }
 
-bool TcpSocket::Bind(const std::string& ip, short port) const {
+bool TcpSocket::Bind(const std::string &ip, short port) const {
     if (sockfd_ < 0) {
         fprintf(stderr, "bind error: socket not created\n");
         return false;
     }
 
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;                // IPv4
-    addr.sin_port = htons(port);              // 主机字节序转网络字节序
+    ::sockaddr_in addr{};
+    addr.sin_family = AF_INET; // IPv4
+    addr.sin_port = htons(port); // 主机字节序转网络字节序
 
     // IP字符串转网络字节序
     if (inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) <= 0) {
@@ -108,7 +108,7 @@ bool TcpSocket::Bind(const std::string& ip, short port) const {
     }
 
     // 执行绑定
-    int ret = ::bind(sockfd_, (struct sockaddr*)&addr, sizeof(addr));
+    int ret = ::bind(sockfd_, (struct sockaddr *) &addr, sizeof(addr));
     if (ret < 0) {
         fprintf(stderr, "bind error: %s\n", strerror(errno));
         return false;
@@ -129,17 +129,17 @@ bool TcpSocket::Listen(int backlog) const {
     return true;
 }
 
-int TcpSocket::Accept() const {
+SocketFd TcpSocket::Accept() const {
     if (sockfd_ < 0) {
         fprintf(stderr, "accept error: socket not created\n");
         return -1;
     }
 
-    struct sockaddr_in client_addr;
+    ::sockaddr_in client_addr{};
     socklen_t addr_len = sizeof(client_addr);
     // 非阻塞accept，内核直接返回，不等待
-    int client_fd = ::accept4(sockfd_, (struct sockaddr*)&client_addr, &addr_len,
-                              SOCK_NONBLOCK | SOCK_CLOEXEC);
+    SocketFd client_fd = ::accept4(sockfd_, (struct sockaddr *) &client_addr,
+                                   &addr_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (client_fd < 0) {
         // 非阻塞下无连接是正常错误，不打印
         if (errno != EAGAIN && errno != EWOULDBLOCK) {

@@ -1,5 +1,5 @@
-#ifndef REMOTE_CONTROL_TIMER_H
-#define REMOTE_CONTROL_TIMER_H
+#ifndef NET_TIMER_H
+#define NET_TIMER_H
 
 #include <map>
 #include <memory>
@@ -10,15 +10,15 @@
 namespace lsy::net {
 
 /**
- * @brief 定时器唯一标识ID
+ * @brief 定时器唯一标识ID, 负数表示无效ID
  */
-typedef uint32_t TimerId;
+using TimerId = int;
 
 /**
  * @brief 定时器事件回调函数类型
  * @details 返回值：true=继续定时执行，false=执行一次后销毁
  */
-typedef std::function<bool(void)> TimerEvent;
+using TimerEvent = std::function<bool(void)>;
 
 /**
  * @brief 定时器类
@@ -33,7 +33,7 @@ public:
      * @param msec 定时器执行间隔（毫秒）
      */
     Timer(TimerEvent event, uint32_t msec)
-        : event_callback_(std::move(event)), interval_(msec) {
+        : event_callback_(std::move(event)), interval_(msec), next_timeout_(0) {
     }
 
     /**
@@ -71,7 +71,7 @@ private:
 /**
  * @brief 定时器智能指针别名
  */
-typedef std::shared_ptr<Timer> TimerPtr;
+using TimerPtr = std::shared_ptr<Timer>;
 
 /**
  * @brief 定时器队列管理类
@@ -88,7 +88,7 @@ public:
      */
     TimerId AddTimer(const TimerEvent &event, uint32_t msec) {
         int64_t time_point = GetTimeNow();
-        TimerId timer_id = ++last_timer_id_;
+        TimerId timer_id = last_timer_id_++;
         auto timer = std::make_shared<Timer>(event, msec);
         timer->SetNextTimeout(time_point);
         timers_.emplace(timer_id, timer);
@@ -161,9 +161,9 @@ private:
     // 事件队列: (下次触发时间戳, 定时器ID) -> 定时器对象
     std::map<std::pair<int64_t, TimerId>, TimerPtr> events_;
     // 定时器自增ID
-    uint32_t last_timer_id_;
+    TimerId last_timer_id_ = 0;
 };
 
 } // lsy::net
 
-#endif //REMOTE_CONTROL_TIMER_H
+#endif // NET_TIMER_H

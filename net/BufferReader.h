@@ -1,5 +1,5 @@
-#ifndef REMOTE_CONTROL_BUFFERREADER_H
-#define REMOTE_CONTROL_BUFFERREADER_H
+#ifndef NET_BUFFERREADER_H
+#define NET_BUFFERREADER_H
 
 #include <sys/socket.h>
 
@@ -165,4 +165,4 @@ private:
 
 } // lsy::net
 
-#endif //REMOTE_CONTROL_BUFFERREADER_H
+#endif // NET_BUFFERREADER_H

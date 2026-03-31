@@ -1,9 +1,11 @@
-#ifndef REMOTE_CONTROL_TCPSOCKET_H
-#define REMOTE_CONTROL_TCPSOCKET_H
+#ifndef NET_TCPSOCKET_H
+#define NET_TCPSOCKET_H
 
 #include <string>
 
 namespace lsy::net {
+
+using SocketFd = int;
 
 /**
  * @brief Socket工具类
@@ -16,35 +18,35 @@ public:
      * @param sockfd 待设置的套接字文件描述符
      * @return 无返回值
      */
-    static void SetNonBlock(int sockfd);
+    static void SetNonBlock(SocketFd sockfd);
 
     /**
      * @brief 设置套接字为阻塞模式
      * @param sockfd 待设置的套接字文件描述符
      * @return 无返回值
      */
-    static void SetBlock(int sockfd);
+    static void SetBlock(SocketFd sockfd);
 
     /**
      * @brief 设置套接字地址复用
      * @param sockfd 待设置的套接字文件描述符
      * @return 无返回值
      */
-    static void SetReuseAddr(int sockfd);
+    static void SetReuseAddr(SocketFd sockfd);
 
     /**
      * @brief 设置套接字端口复用
      * @param sockfd 待设置的套接字文件描述符
      * @return 无返回值
      */
-    static void SetReusePort(int sockfd);
+    static void SetReusePort(SocketFd sockfd);
 
     /**
      * @brief 开启TCP保活机制
      * @param sockfd 待设置的套接字文件描述符
      * @return 无返回值
      */
-    static void SetKeepAlive(int sockfd);
+    static void SetKeepAlive(SocketFd sockfd);
 
     /**
      * @brief 设置套接字发送缓冲区大小
@@ -52,7 +54,7 @@ public:
      * @param size 发送缓冲区大小（字节）
      * @return 无返回值
      */
-    static void SetSendBufSize(int sockfd, int size);
+    static void SetSendBufSize(SocketFd sockfd, int size);
 
     /**
      * @brief 设置套接字接收缓冲区大小
@@ -60,7 +62,7 @@ public:
      * @param size 接收缓冲区大小（字节）
      * @return 无返回值
      */
-    static void SetRecvBufSize(int sockfd, int size);
+    static void SetRecvBufSize(SocketFd sockfd, int size);
 };
 
 /**
@@ -106,7 +108,7 @@ public:
      * @brief 接受客户端的TCP连接
      * @return 成功返回客户端套接字文件描述符，失败返回-1
      */
-    int Accept() const;
+    SocketFd Accept() const;
 
     /**
      * @brief 关闭套接字
@@ -125,12 +127,12 @@ public:
      * @brief 获取当前套接字文件描述符
      * @return 套接字文件描述符
      */
-    int GetSocket() const { return sockfd_; }
+    SocketFd GetSocket() const { return sockfd_; }
 
 private:
-    int sockfd_ = -1;  ///< 套接字文件描述符，初始化为-1表示无效
+    SocketFd sockfd_ = -1;  ///< 套接字文件描述符，初始化为-1表示无效
 };
 
 } // lsy::net
 
-#endif //REMOTE_CONTROL_TCPSOCKET_H
+#endif // NET_TCPSOCKET_H

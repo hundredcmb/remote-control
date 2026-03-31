@@ -1,5 +1,5 @@
-#ifndef REMOTE_CONTROL_CHANNEL_H
-#define REMOTE_CONTROL_CHANNEL_H
+#ifndef NET_CHANNEL_H
+#define NET_CHANNEL_H
 
 #include <memory>
 #include <functional>
@@ -10,7 +10,7 @@ namespace lsy::net {
  * @brief IO事件枚举
  * @details 封装Linux epoll网络IO事件，支持位运算组合
  */
-enum Event : int {
+enum Event : uint32_t {
     EVENT_NONE = 0,
     EVENT_IN = 1,
     EVENT_PRI = 2,
@@ -20,19 +20,31 @@ enum Event : int {
 };
 
 /**
+ * @brief 事件掩码类型
+ * @details 封装Linux epoll网络IO事件，支持位运算组合
+ */
+using Events = uint32_t;
+
+/**
+ * @brief 文件描述符类型
+ * @details 封装Linux文件描述符
+ */
+using FileDescriptor = int;
+
+/**
  * @brief 通道类
- * @details 封装套接字文件描述符、IO事件、事件回调，是Reactor模型的核心组件
+ * @details 封装文件描述符、IO事件、事件回调，是Reactor模型的核心组件
  *          负责管理单个fd的事件监听、回调绑定与事件分发
  */
 class Channel {
 public:
-    typedef std::function<void()> EventCallback;
+    using EventCallback = std::function<void()>;
 
     /**
      * @brief 构造函数
-     * @param sockfd 绑定的套接字文件描述符
+     * @param fd 绑定的文件描述符
      */
-    explicit Channel(int sockfd) : sockfd_(sockfd) {
+    explicit Channel(FileDescriptor fd) : fd_(fd) {
     }
 
     /**
@@ -73,16 +85,16 @@ public:
     }
 
     /**
-     * @brief 获取绑定的套接字文件描述符
-     * @return 套接字fd
+     * @brief 获取绑定的文件描述符
+     * @return fd
      */
-    inline int GetSocket() const { return sockfd_; }
+    inline FileDescriptor GetFd() const { return fd_; }
 
     /**
      * @brief 获取当前监听的事件掩码
      * @return 事件掩码值
      */
-    inline int GetEvents() const { return events_; }
+    inline Events GetEvents() const { return events_; }
 
     /**
      * @brief 设置监听的事件掩码
@@ -133,40 +145,37 @@ public:
      * @param events 触发的事件类型
      * @details 根据触发的IO事件，调用对应的回调函数
      */
-    void HandleEvent(int events) {
+    void HandleEvent(Events events) {
         if (events & (EVENT_PRI | EVENT_IN)) {
             read_callback_();
         }
-
         if (events & EVENT_OUT) {
             write_callback_();
         }
-
         if (events & EVENT_HUP) {
             close_callback_();
             return;
         }
-
         if (events & (EVENT_ERR)) {
             error_callback_();
         }
     }
 
 private:
-    EventCallback read_callback_ = []() -> void {};    // 读事件回调
-    EventCallback write_callback_ = []() -> void {};   // 写事件回调
-    EventCallback close_callback_ = []() -> void {};   // 关闭事件回调
-    EventCallback error_callback_ = []() -> void {};   // 错误事件回调
-    int sockfd_ = 0;                                   // 绑定的套接字fd
-    int events_ = 0;                                   // 事件掩码
+    EventCallback read_callback_ = []() -> void {};     // 读事件回调
+    EventCallback write_callback_ = []() -> void {};    // 写事件回调
+    EventCallback close_callback_ = []() -> void {};    // 关闭事件回调
+    EventCallback error_callback_ = []() -> void {};    // 错误事件回调
+    FileDescriptor fd_ = 0;                             // 绑定的fd
+    Events events_ = 0;                                 // 事件掩码
 };
 
 /**
  * @brief 通道智能指针别名
  * @details 简化std::shared_ptr<Channel>的使用
  */
-typedef std::shared_ptr<Channel> ChannelPtr;
+using ChannelPtr = std::shared_ptr<Channel>;
 
 } // lsy::net
 
-#endif //REMOTE_CONTROL_CHANNEL_H
+#endif // NET_CHANNEL_H

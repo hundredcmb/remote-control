@@ -1,5 +1,5 @@
-#ifndef REMOTE_CONTROL_BUFFERWRITER_H
-#define REMOTE_CONTROL_BUFFERWRITER_H
+#ifndef NET_BUFFERWRITER_H
+#define NET_BUFFERWRITER_H
 
 #include <sys/socket.h>
 #include <cerrno>
@@ -136,4 +136,4 @@ private:
 
 } // lsy::net
 
-#endif
+#endif // NET_BUFFERWRITER_H

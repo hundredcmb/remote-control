@@ -13,6 +13,7 @@ set(TARGET_NAME ${PROJECT_NAME})
 
 add_executable(${TARGET_NAME}
         main.cpp
+        base/Noncopyable.h
         net/TcpSocket.h
         net/TcpSocket.cpp
         net/TcpSocket.h
@@ -21,10 +22,15 @@ add_executable(${TARGET_NAME}
         net/BufferReader.h
         net/BufferWriter.h
         net/Timer.h
+        net/TaskScheduler.h
+        net/EpollTaskScheduler.h
+        net/EventLoop.h
+        net/EventLoop.cpp
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE
         net
+        base
 )
 
 target_link_libraries(${TARGET_NAME} PRIVATE
