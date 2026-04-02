@@ -24,9 +24,11 @@ add_executable(${TARGET_NAME}
         net/Timer.h
         net/TaskScheduler.h
         net/EpollTaskScheduler.h
-        net/EventLoop.h
-        net/EventLoop.cpp
+        net/EventLoops.h
+        net/EventLoops.cpp
         net/TcpConnection.h
+        net/Acceptor.h
+        net/TcpServer.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE

@@ -95,7 +95,7 @@ public:
      * @param port 待绑定的端口号
      * @return 绑定成功返回true，失败返回false
      */
-    bool Bind(const std::string& ip, short port) const;
+    bool Bind(const std::string& ip, uint16_t port) const;
 
     /**
      * @brief 监听套接字连接请求

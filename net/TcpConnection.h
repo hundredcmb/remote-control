@@ -3,12 +3,21 @@
 
 #include <unistd.h>
 
+#include <utility>
+
 #include "TcpSocket.h"
 #include "BufferReader.h"
 #include "BufferWriter.h"
 #include "TaskScheduler.h"
 
 namespace lsy::net {
+
+class TcpConnection;
+
+/**
+ * @brief TCP连接智能指针类型
+ */
+using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
 
 /**
  * @brief TCP连接管理类
@@ -18,11 +27,6 @@ namespace lsy::net {
  */
 class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
 public:
-    /**
-     * @brief TCP连接智能指针类型
-     */
-    using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
-
     /**
      * @brief 断开连接回调函数类型
      * @param TcpConnectionPtr 触发断开事件的TCP连接智能指针
@@ -47,8 +51,8 @@ public:
      * @param task_scheduler 任务调度器指针，负责连接的事件监听与调度
      * @param sockfd TCP连接对应的套接字文件描述符
      */
-    TcpConnection(TaskScheduler *task_scheduler, int sockfd)
-        : task_scheduler_(task_scheduler),
+    TcpConnection(TaskSchedulerPtr task_scheduler, int sockfd)
+        : task_scheduler_(std::move(task_scheduler)),
           read_buffer_(new BufferReader()),
           write_buffer_(new BufferWriter()),
           channel_(new Channel(sockfd)),
@@ -82,7 +86,7 @@ public:
      * @brief 获取任务调度器指针
      * @return 指向任务调度器的指针
      */
-    TaskScheduler *GetTaskScheduler() const {
+    TaskSchedulerPtr GetTaskScheduler() const {
         return task_scheduler_;
     }
 
@@ -120,7 +124,7 @@ public:
      * @param size 待发送数据的长度（字节）
      */
     void Send(const char *data, uint32_t size) {
-        if (is_closed_) {
+        if (!is_closed_) {
             write_buffer_->Append(data, size);
             HandleWrite();
         }
@@ -220,7 +224,7 @@ protected:
     }
 
     /// 任务调度器指针，负责连接的事件调度
-    TaskScheduler *task_scheduler_;
+    TaskSchedulerPtr task_scheduler_;
     /// 读缓冲区智能指针，存储从套接字读取的数据
     std::unique_ptr<BufferReader> read_buffer_;
     /// 写缓冲区智能指针，存储待发送到套接字的数据

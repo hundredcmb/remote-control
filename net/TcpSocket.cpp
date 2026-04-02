@@ -91,7 +91,7 @@ int TcpSocket::Create() {
     return 0;
 }
 
-bool TcpSocket::Bind(const std::string &ip, short port) const {
+bool TcpSocket::Bind(const std::string &ip, uint16_t port) const {
     if (sockfd_ < 0) {
         fprintf(stderr, "bind error: socket not created\n");
         return false;

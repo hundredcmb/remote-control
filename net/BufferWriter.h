@@ -61,7 +61,8 @@ public:
         if (buffer_.size() >= max_queue_length_) {
             return false;
         }
-        std::shared_ptr<char> data_ptr(new char[size], std::default_delete<char[]>());
+        std::shared_ptr<char> data_ptr(new char[size],
+                                       std::default_delete<char[]>());
         buffer_.emplace(data_ptr, size, index);
         return true;
     }
@@ -78,9 +79,10 @@ public:
         }
 
         ssize_t ret;
-        while(true) {
+        while (true) {
             Packet &packet = buffer_.front();
-            ret = ::send(sockfd, packet.data.get() + packet.write_index, packet.size - packet.write_index, 0);
+            ret = ::send(sockfd, packet.data.get() + packet.write_index,
+                         packet.size - packet.write_index, 0);
             if (ret > 0) {
                 packet.write_index += ret;
                 if (packet.write_index == packet.size) {
@@ -127,6 +129,9 @@ private:
         std::shared_ptr<char> data;    // 数据存储指针
         uint32_t size;                 // 数据包总大小
         uint32_t write_index;          // 已发送数据的偏移量
+        Packet(const std::shared_ptr<char> &data, uint32_t size, uint32_t index)
+            : data(data), size(size), write_index(index) {
+        }
     };
 
     std::queue<Packet> buffer_;               // 数据包发送队列
