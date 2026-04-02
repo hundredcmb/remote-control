@@ -162,12 +162,12 @@ public:
     }
 
 private:
-    EventCallback read_callback_ = []() -> void {};     // 读事件回调
-    EventCallback write_callback_ = []() -> void {};    // 写事件回调
-    EventCallback close_callback_ = []() -> void {};    // 关闭事件回调
-    EventCallback error_callback_ = []() -> void {};    // 错误事件回调
-    FileDescriptor fd_ = 0;                             // 绑定的fd
-    Events events_ = 0;                                 // 事件掩码
+    EventCallback read_callback_ = []() -> void {};
+    EventCallback write_callback_ = []() -> void {};
+    EventCallback close_callback_ = []() -> void {};
+    EventCallback error_callback_ = []() -> void {};
+    FileDescriptor fd_ = 0;
+    Events events_ = 0;
 };
 
 /**

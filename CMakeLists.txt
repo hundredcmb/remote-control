@@ -26,6 +26,7 @@ add_executable(${TARGET_NAME}
         net/EpollTaskScheduler.h
         net/EventLoop.h
         net/EventLoop.cpp
+        net/TcpConnection.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE
