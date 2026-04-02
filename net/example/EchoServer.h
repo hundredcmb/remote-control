@@ -1,3 +1,6 @@
+#ifndef NET_ECHOSERVER_H
+#define NET_ECHOSERVER_H
+
 #include "TcpServer.h"
 #include "TcpConnection.h"
 #include "EventLoopThreadPool.h"
@@ -5,13 +8,26 @@
 #include <string>
 #include <cstdio>
 
-using namespace lsy::net;
+namespace lsy::net {
 
+/**
+ * @brief 回显服务器示例类
+ * @details 继承自TcpServer，实现最简单的Echo业务逻辑：
+ *          接收客户端数据后立即原样回写，用于测试网络库功能
+ */
 class EchoServer : public TcpServer {
 public:
+    /**
+     * @brief 继承基类构造函数
+     */
     using TcpServer::TcpServer;
 
 protected:
+    /**
+     * @brief 重写新连接建立回调
+     * @param conn 新建立的TCP连接智能指针
+     * @details 为新连接设置【数据读取回调】和【连接关闭回调】，实现Echo回显功能
+     */
     void OnConnect(const TcpConnectionPtr &conn) override {
         if (!conn) {
             return;
@@ -43,22 +59,36 @@ protected:
     }
 };
 
+} // lsy::net
+
+#endif // NET_ECHOSERVER_H
+
 #if 0
+/**
+ * @brief EchoServer 主函数示例
+ * @details 初始化4线程事件循环池，启动Echo服务器监听8888端口
+ * @return 程序退出状态码
+ */
 int main() {
+    // 线程池线程数量
     const uint32_t kThreadNum = 4;
 
+    // 创建事件循环线程池
     EventLoopThreadPoolPtr loop_pool = std::make_shared<EventLoopThreadPool>(
         kThreadNum);
+
+    // 创建Echo服务器
     EchoServer server(loop_pool);
 
+    // 启动服务器，监听0.0.0.0:8888
     if (!server.Start("0.0.0.0", 8888)) {
         fprintf(stderr, "[EchoServer] failed to start server!\n");
         return -1;
     }
-
     printf("[EchoServer] server started, listening on port 8888\n");
     printf("[EchoServer] thread pool size: %u\n", kThreadNum);
 
+    // 启动事件循环
     loop_pool->Loop();
     return 0;
 }

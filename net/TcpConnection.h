@@ -3,8 +3,6 @@
 
 #include <unistd.h>
 
-#include <utility>
-
 #include "TcpSocket.h"
 #include "BufferReader.h"
 #include "BufferWriter.h"
