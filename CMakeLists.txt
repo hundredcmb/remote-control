@@ -16,19 +16,17 @@ add_executable(${TARGET_NAME}
         base/Noncopyable.h
         net/TcpSocket.h
         net/TcpSocket.cpp
-        net/TcpSocket.h
-        net/TcpSocket.cpp
         net/Channel.h
         net/BufferReader.h
         net/BufferWriter.h
         net/Timer.h
         net/TaskScheduler.h
         net/EpollTaskScheduler.h
-        net/EventLoops.h
-        net/EventLoops.cpp
+        net/EventLoopThreadPool.h
         net/TcpConnection.h
         net/Acceptor.h
         net/TcpServer.h
+        net/example/EchoServer.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE

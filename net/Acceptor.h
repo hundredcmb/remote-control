@@ -3,10 +3,11 @@
 
 #include <functional>
 #include <memory>
+#include <utility>
 
 #include "Channel.h"
 #include "TcpSocket.h"
-#include "EventLoops.h"
+#include "TaskScheduler.h"
 
 namespace lsy::net {
 
@@ -14,8 +15,8 @@ using NewConnectionCallback = std::function<void(SocketFd)>;
 
 class Acceptor {
 public:
-    explicit Acceptor(EventLoops *eventLoop)
-        : event_loop_(eventLoop),
+    explicit Acceptor(TaskSchedulerPtr eventLoop)
+        : task_scheduler_(std::move(eventLoop)),
           tcp_socket_(new TcpSocket()) {
     }
 
@@ -26,7 +27,7 @@ public:
     }
 
     int Listen(const std::string &ip, uint16_t port) {
-        if (tcp_socket_->GetSocket() > 0) {
+        if (tcp_socket_->GetFd() > 0) {
             tcp_socket_->Close();
         }
         SocketFd fd = tcp_socket_->Create();
@@ -44,13 +45,13 @@ public:
 
         channel_ptr_->SetReadCallback([this]() -> void { this->OnAccept(); });
         channel_ptr_->EnableReading();
-        event_loop_->GetAcceptTaskScheduler()->UpdateChannel(channel_ptr_);
+        task_scheduler_->UpdateChannel(channel_ptr_);
         return 0;
     }
 
     void Close() {
-        if (tcp_socket_->GetSocket() > 0) {
-            event_loop_->GetAcceptTaskScheduler()->RemoveChannel(channel_ptr_);
+        if (tcp_socket_->GetFd() > 0) {
+            task_scheduler_->RemoveChannel(channel_ptr_);
             tcp_socket_->Close();
         }
     }
@@ -65,7 +66,7 @@ private:
         }
     }
 
-    EventLoops *event_loop_ = nullptr;
+    TaskSchedulerPtr task_scheduler_;
     ChannelPtr channel_ptr_;
     std::unique_ptr<TcpSocket> tcp_socket_;
     NewConnectionCallback new_connection_callback_;

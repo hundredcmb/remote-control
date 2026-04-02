@@ -85,7 +85,7 @@ public:
 
     /**
      * @brief 创建TCP套接字
-     * @return 成功返回0，失败返回-1
+     * @return 成功返回 fd，失败返回-1
      */
     int Create();
 
@@ -127,7 +127,7 @@ public:
      * @brief 获取当前套接字文件描述符
      * @return 套接字文件描述符
      */
-    SocketFd GetSocket() const { return sockfd_; }
+    SocketFd GetFd() const { return sockfd_; }
 
 private:
     SocketFd sockfd_ = -1;  ///< 套接字文件描述符，初始化为-1表示无效

@@ -3,26 +3,26 @@
 
 #include "Acceptor.h"
 #include "TcpConnection.h"
+#include "EventLoopThreadPool.h"
 
 namespace lsy::net {
 
 class TcpServer {
 public:
-    explicit TcpServer(EventLoops *event_loop)
+    explicit TcpServer(const EventLoopThreadPoolPtr &event_loops)
         : is_started_(false),
-          event_loops_(event_loop),
-          acceptor_(new Acceptor(event_loop)) {
+          event_loops_(event_loops),
+          acceptor_(new Acceptor(event_loops->GetAcceptTaskScheduler())),
+          port_(0) {
         acceptor_->SetNewConnectionCallback([this](SocketFd sockfd) -> void {
-            TcpConnectionPtr tcp_conn = this->OnConnect(sockfd);
-            if (tcp_conn) {
-                this->AddConnection(sockfd, tcp_conn);
-                tcp_conn->SetDisconnectCallback(
-                    [this](const TcpConnectionPtr &tcp_conn) -> void {
-                        SocketFd fd = tcp_conn->GetSocket();
-                        this->RemoveConnection(fd);
-                    }
-                );
-            }
+            TcpConnectionPtr conn = CreateConnection(sockfd);
+            AddConnection(sockfd, conn);
+            this->OnConnect(conn);
+            conn->SetDisconnectCallback(
+                [this](const TcpConnectionPtr &tcp_conn) -> void {
+                    this->RemoveConnection(tcp_conn->GetSocket());
+                }
+            );
         });
     }
 
@@ -32,6 +32,8 @@ public:
 
     bool Start(const std::string &ip, uint16_t port) {
         Stop();
+
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_started_) {
             if (acceptor_->Listen(ip, port) < 0) {
                 return false;
@@ -44,6 +46,7 @@ public:
     }
 
     void Stop() {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_started_) {
             return;
         }
@@ -54,7 +57,7 @@ public:
         is_started_ = false;
     }
 
-    std::string GetIPAddress() const {
+    std::string GetIpAddress() const {
         return ip_;
     }
 
@@ -62,26 +65,40 @@ public:
         return port_;
     }
 
-protected:
-    virtual TcpConnectionPtr OnConnect(int sockfd) {
+    TcpConnectionPtr CreateConnection(int sockfd) {
         return std::make_shared<TcpConnection>(
             event_loops_->GetNextIoTaskScheduler(), sockfd);
     }
 
-    virtual void AddConnection(int sockfd, const TcpConnectionPtr &tcp_conn) {
-        connections_.emplace(sockfd, tcp_conn);
+    TcpConnectionPtr GetConnection(SocketFd sockfd) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = connections_.find(sockfd);
+        return (it != connections_.end()) ? it->second : nullptr;
     }
 
-    virtual void RemoveConnection(int sockfd) {
+    void AddConnection(int sockfd, const TcpConnectionPtr &conn) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        connections_.emplace(sockfd, conn);
+    }
+
+    void RemoveConnection(int sockfd) {
+        std::lock_guard<std::mutex> lock(mutex_);
         connections_.erase(sockfd);
     }
 
-    EventLoops *event_loops_{};
+protected:
+    virtual void OnConnect(const TcpConnectionPtr &conn) {
+        // conn->SetReadCallback(...);
+        // conn->SetCloseCallback(...);
+    };
+
+    EventLoopThreadPoolPtr event_loops_;
     std::string ip_;
-    uint16_t port_{};
+    uint16_t port_;
     std::unique_ptr<Acceptor> acceptor_;
-    std::atomic_bool is_started_;
+    bool is_started_;
     std::unordered_map<SocketFd, TcpConnectionPtr> connections_;
+    std::mutex mutex_;
 };
 
 } // lsy::net

@@ -6,6 +6,7 @@
 
 #include <queue>
 #include <memory>
+#include <cstring>
 
 namespace lsy::net {
 
@@ -36,14 +37,15 @@ public:
      * @param index 数据发送起始偏移量，默认为0
      * @return  添加成功返回true，缓冲区满/参数非法返回false
      */
-    bool Append(std::shared_ptr<char> data, uint32_t size, uint32_t index = 0) {
+    bool Append(const std::shared_ptr<char> &data, uint32_t size,
+                uint32_t index = 0) {
         if (size < index) {
             return false;
         }
         if (buffer_.size() >= max_queue_length_) {
             return false;
         }
-        buffer_.emplace(std::move(data), size, index);
+        buffer_.emplace(data, size, index);
         return true;
     }
 
@@ -63,6 +65,7 @@ public:
         }
         std::shared_ptr<char> data_ptr(new char[size],
                                        std::default_delete<char[]>());
+        std::memcpy(data_ptr.get(), data, size);
         buffer_.emplace(data_ptr, size, index);
         return true;
     }

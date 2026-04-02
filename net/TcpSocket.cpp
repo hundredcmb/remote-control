@@ -88,7 +88,7 @@ int TcpSocket::Create() {
         fprintf(stderr, "socket create error: %s\n", strerror(errno));
         return -1;
     }
-    return 0;
+    return sockfd_;
 }
 
 bool TcpSocket::Bind(const std::string &ip, uint16_t port) const {
@@ -163,4 +163,4 @@ void TcpSocket::ShutdownWrite() const {
     }
 }
 
-} // namespace lsy::net
+} // lsy::net
