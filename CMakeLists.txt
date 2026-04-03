@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(remote-control)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "Only support 'Linux' system, current system is '${CMAKE_SYSTEM_NAME}'")
-endif()
+endif ()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,7 @@ set(TARGET_NAME ${PROJECT_NAME})
 add_executable(${TARGET_NAME}
         main.cpp
         base/Noncopyable.h
+        base/BigEndianBuffer.h
         net/TcpSocket.h
         net/TcpSocket.cpp
         net/Channel.h
@@ -27,13 +28,9 @@ add_executable(${TARGET_NAME}
         net/Acceptor.h
         net/TcpServer.h
         net/example/EchoServer.h
+        rtmp/RtmpHandshake.h
 )
 
-target_include_directories(${TARGET_NAME} PRIVATE
-        net
-        base
-)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(${TARGET_NAME} PRIVATE
-        pthread
-)
+target_link_libraries(${TARGET_NAME} PRIVATE pthread)

@@ -1,9 +1,9 @@
 #ifndef NET_ECHOSERVER_H
 #define NET_ECHOSERVER_H
 
-#include "TcpServer.h"
-#include "TcpConnection.h"
-#include "EventLoopThreadPool.h"
+#include "net/TcpServer.h"
+#include "net/TcpConnection.h"
+#include "net/EventLoopThreadPool.h"
 
 #include <string>
 #include <cstdio>
