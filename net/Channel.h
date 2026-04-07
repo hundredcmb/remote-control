@@ -56,7 +56,7 @@ public:
      * @brief 设置读事件回调函数
      * @param cb 读事件触发时执行的回调
      */
-    inline void SetReadCallback(const EventCallback &cb) {
+    void SetReadCallback(const EventCallback &cb) {
         read_callback_ = cb;
     }
 
@@ -64,7 +64,7 @@ public:
      * @brief 设置写事件回调函数
      * @param cb 写事件触发时执行的回调
      */
-    inline void SetWriteCallback(const EventCallback &cb) {
+    void SetWriteCallback(const EventCallback &cb) {
         write_callback_ = cb;
     }
 
@@ -72,7 +72,7 @@ public:
      * @brief 设置关闭事件回调函数
      * @param cb 连接关闭时执行的回调
      */
-    inline void SetCloseCallback(const EventCallback &cb) {
+    void SetCloseCallback(const EventCallback &cb) {
         close_callback_ = cb;
     }
 
@@ -80,7 +80,7 @@ public:
      * @brief 设置错误事件回调函数
      * @param cb 发生错误时执行的回调
      */
-    inline void SetErrorCallback(const EventCallback &cb) {
+    void SetErrorCallback(const EventCallback &cb) {
         error_callback_ = cb;
     }
 
@@ -88,57 +88,77 @@ public:
      * @brief 获取绑定的文件描述符
      * @return fd
      */
-    inline FileDescriptor GetFd() const { return fd_; }
+    [[nodiscard]] FileDescriptor GetFd() const {
+        return fd_;
+    }
 
     /**
      * @brief 获取当前监听的事件掩码
      * @return 事件掩码值
      */
-    inline Events GetEvents() const { return events_; }
+    [[nodiscard]] Events GetEvents() const {
+        return events_;
+    }
 
     /**
      * @brief 设置监听的事件掩码
      * @param events 待设置的事件掩码
      */
-    inline void SetEvents(int events) { events_ = events; }
+    void SetEvents(int events) {
+        events_ = events;
+    }
 
     /**
      * @brief 开启读事件监听
      */
-    inline void EnableReading() { events_ |= EVENT_IN; }
+    void EnableReading() {
+        events_ |= EVENT_IN;
+    }
 
     /**
      * @brief 开启写事件监听
      */
-    inline void EnableWriting() { events_ |= EVENT_OUT; }
+    void EnableWriting() {
+        events_ |= EVENT_OUT;
+    }
 
     /**
      * @brief 关闭读事件监听
      */
-    inline void DisableReading() { events_ &= ~EVENT_IN; }
+    void DisableReading() {
+        events_ &= ~EVENT_IN;
+    }
 
     /**
      * @brief 关闭写事件监听
      */
-    inline void DisableWriting() { events_ &= ~EVENT_OUT; }
+    void DisableWriting() {
+        events_ &= ~EVENT_OUT;
+    }
 
     /**
      * @brief 判断是否未监听任何事件
      * @return 无事件返回true，否则返回false
      */
-    inline bool IsNoneEvent() const { return events_ == EVENT_NONE; }
+    [[nodiscard]] bool IsNoneEvent() const {
+        return events_ == EVENT_NONE;
+    }
 
     /**
      * @brief 判断是否开启写事件监听
      * @return 开启写事件返回true，否则返回false
      */
-    inline bool IsWriting() const { return (events_ & EVENT_OUT) != 0; }
+    [[nodiscard]] bool IsWriting() const {
+        return (events_ & EVENT_OUT) != 0;
+    }
 
     /**
      * @brief 判断是否开启读事件监听
      * @return 开启读事件返回true，否则返回false
      */
-    inline bool IsReading() const { return (events_ & EVENT_IN) != 0; }
+    [[nodiscard]] bool IsReading() const {
+        return (events_ & EVENT_IN) != 0;
+    }
 
     /**
      * @brief 事件分发处理函数

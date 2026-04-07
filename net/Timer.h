@@ -59,7 +59,7 @@ private:
      * @brief 获取定时器下次触发时间戳
      * @return 下次触发的毫秒时间戳
      */
-    int64_t GetNextTimeout() const {
+    [[nodiscard]] int64_t GetNextTimeout() const {
         return next_timeout_;
     }
 

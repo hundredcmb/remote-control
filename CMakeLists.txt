@@ -14,7 +14,7 @@ set(TARGET_NAME ${PROJECT_NAME})
 add_executable(${TARGET_NAME}
         main.cpp
         base/Noncopyable.h
-        base/BigEndianBuffer.h
+        base/ByteIO.h
         net/TcpSocket.h
         net/TcpSocket.cpp
         net/Channel.h

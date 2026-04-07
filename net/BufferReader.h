@@ -33,29 +33,33 @@ public:
      * @brief 获取缓冲区可读字节数
      * @return 未读取的有效数据长度
      */
-    uint32_t ReadableBytes() const {
-        return (uint32_t) (writer_index_ - reader_index_);
+    [[nodiscard]] size_t ReadableBytes() const {
+        return writer_index_ - reader_index_;
     }
 
     /**
      * @brief 获取缓冲区可写字节数
      * @return 剩余可用的写入空间大小
      */
-    uint32_t WritableBytes() const {
-        return (uint32_t) (buffer_.size() - writer_index_);
+    [[nodiscard]] size_t WritableBytes() const {
+        return buffer_.size() - writer_index_;
     }
 
     /**
      * @brief 获取可读数据的起始指针（非const）
      * @return 指向可读数据首地址的指针
      */
-    char *Peek() { return Begin() + reader_index_; }
+    char *Peek() {
+        return Begin() + reader_index_;
+    }
 
     /**
      * @brief 获取可读数据的起始指针（const）
      * @return 指向可读数据首地址的常量指针
      */
-    const char *Peek() const { return Begin() + reader_index_; }
+    [[nodiscard]] const char *Peek() const {
+        return Begin() + reader_index_;
+    }
 
     /**
      * @brief 清空整个缓冲区
@@ -129,32 +133,42 @@ public:
      * @brief 获取缓冲区总容量
      * @return 缓冲区底层vector的总大小
      */
-    uint32_t Size() const { return (uint32_t) buffer_.size(); }
+    [[nodiscard]] size_t Size() const {
+        return buffer_.size();
+    }
 
 private:
     /**
      * @brief 获取缓冲区起始指针（非const）
      * @return 缓冲区内存首地址
      */
-    char *Begin() { return &*buffer_.begin(); }
+    char *Begin() {
+        return &*buffer_.begin();
+    }
 
     /**
      * @brief 获取缓冲区起始指针（const）
      * @return 缓冲区内存首地址
      */
-    const char *Begin() const { return &*buffer_.begin(); }
+    [[nodiscard]] const char *Begin() const {
+        return &*buffer_.begin();
+    }
 
     /**
      * @brief 获取可写位置指针（非const）
      * @return 缓冲区可写入数据的首地址
      */
-    char *BeginWrite() { return Begin() + writer_index_; }
+    char *BeginWrite() {
+        return Begin() + writer_index_;
+    }
 
     /**
      * @brief 获取可写位置指针（const）
      * @return 缓冲区可写入数据的首地址
      */
-    const char *BeginWrite() const { return Begin() + writer_index_; }
+    [[nodiscard]] const char *BeginWrite() const {
+        return Begin() + writer_index_;
+    }
 
     std::vector<char> buffer_;        // 底层数据存储容器
     size_t reader_index_ = 0;         // 读索引（下一个待读取的位置）

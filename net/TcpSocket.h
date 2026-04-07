@@ -95,20 +95,20 @@ public:
      * @param port 待绑定的端口号
      * @return 绑定成功返回true，失败返回false
      */
-    bool Bind(const std::string& ip, uint16_t port) const;
+    [[nodiscard]] bool Bind(const std::string& ip, uint16_t port) const;
 
     /**
      * @brief 监听套接字连接请求
      * @param backlog 监听队列的最大长度
      * @return 监听成功返回true，失败返回false
      */
-    bool Listen(int backlog) const;
+    [[nodiscard]] bool Listen(int backlog) const;
 
     /**
      * @brief 接受客户端的TCP连接
      * @return 成功返回客户端套接字文件描述符，失败返回-1
      */
-    SocketFd Accept() const;
+    [[nodiscard]] SocketFd Accept() const;
 
     /**
      * @brief 关闭套接字
@@ -127,7 +127,7 @@ public:
      * @brief 获取当前套接字文件描述符
      * @return 套接字文件描述符
      */
-    SocketFd GetFd() const { return sockfd_; }
+    [[nodiscard]] SocketFd GetFd() const { return sockfd_; }
 
 private:
     SocketFd sockfd_ = -1;  ///< 套接字文件描述符，初始化为-1表示无效

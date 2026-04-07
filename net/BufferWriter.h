@@ -107,13 +107,15 @@ public:
      * @brief 判断发送缓冲区是否为空
      * @return 为空返回true，否则返回false
      */
-    bool Empty() const { return buffer_.empty(); }
+    [[nodiscard]] bool Empty() const {
+        return buffer_.empty();
+    }
 
     /**
      * @brief 判断发送缓冲区是否已满
      * @return 已满返回true，否则返回false
      */
-    bool Full() const {
+    [[nodiscard]] bool Full() const {
         return buffer_.size() >= max_queue_length_;
     }
 
@@ -121,7 +123,9 @@ public:
      * @brief 获取发送缓冲区中待发送的数据包数量
      * @return 数据包个数
      */
-    uint32_t Size() const { return (uint32_t) buffer_.size(); }
+    [[nodiscard]] size_t Size() const {
+        return buffer_.size();
+    }
 
 private:
     /**
@@ -132,6 +136,7 @@ private:
         std::shared_ptr<char> data;    // 数据存储指针
         uint32_t size;                 // 数据包总大小
         uint32_t write_index;          // 已发送数据的偏移量
+
         Packet(const std::shared_ptr<char> &data, uint32_t size, uint32_t index)
             : data(data), size(size), write_index(index) {
         }

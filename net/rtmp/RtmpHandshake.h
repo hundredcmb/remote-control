@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "net/BufferReader.h"
-#include "base/BigEndianBuffer.h"
+#include "base/ByteIO.h"
 
 namespace lsy::net::rtmp {
 
@@ -172,19 +172,19 @@ public:
         size_t offset = 0;
 
         // 1. 写入 C0 (1B 版本号)
-        BigEndianBuffer::WriteUInt8(buffer, kC0C1Total, offset,
-                                    kRtmpVersion);
+        ByteIO::WriteUInt8(buffer, kC0C1Total, offset,
+                           kRtmpVersion);
 
         // 2. 写入 C1
 
         // 2.1. 4B: 客户端自身的时间戳
         auto timestamp = static_cast<uint32_t>(::time(nullptr));
-        BigEndianBuffer::WriteUInt32BE(buffer, kC0C1Total, offset,
-                                       timestamp);
+        ByteIO::WriteUInt32BE(buffer, kC0C1Total, offset,
+                              timestamp);
         // 2.2. 4B: 0
         offset += 4;
         // 2.3. 1528B: 随机数
-        BigEndianBuffer::WriteRandomBytes(buffer, kC0C1Total, offset,
+        ByteIO::WriteRandomBytes(buffer, kC0C1Total, offset,
                                           kC1C2S1S2Size - 8);
 
         return kC0C1Total;
@@ -202,13 +202,13 @@ public:
 
         // 1. 4B: 服务器自身时间戳(大端)
         auto server_ts = static_cast<uint32_t>(::time(nullptr));
-        BigEndianBuffer::WriteUInt32BE(buffer, kC1C2S1S2Size, offset,
-                                       server_ts);
+        ByteIO::WriteUInt32BE(buffer, kC1C2S1S2Size, offset,
+                              server_ts);
         // 2. 4B: 回显客户端C1的时间戳(大端)
-        BigEndianBuffer::WriteBytes(buffer, kC1C2S1S2Size, offset, c1_data,
-                                    4);
+        ByteIO::WriteBytes(buffer, kC1C2S1S2Size, offset, c1_data,
+                           4);
         // 3. 1528B: 回显客户端C1的随机数
-        BigEndianBuffer::WriteBytes(buffer, kC1C2S1S2Size, offset,
+        ByteIO::WriteBytes(buffer, kC1C2S1S2Size, offset,
                                     c1_data + 8, kC1C2S1S2Size - 8);
         return kC1C2S1S2Size;
     }
@@ -221,13 +221,13 @@ public:
 
         // 1. 4B: 客户端自身时间戳(大端)
         auto client_ts = static_cast<uint32_t>(::time(nullptr));
-        BigEndianBuffer::WriteUInt32BE(buffer, kC1C2S1S2Size, offset,
-                                       client_ts);
+        ByteIO::WriteUInt32BE(buffer, kC1C2S1S2Size, offset,
+                              client_ts);
         // 2. 4B: 回显服务器S1的时间戳(大端)
-        BigEndianBuffer::WriteBytes(buffer, kC1C2S1S2Size, offset, s1_data,
-                                    4);
+        ByteIO::WriteBytes(buffer, kC1C2S1S2Size, offset, s1_data,
+                           4);
         // 3. 1528B: 回显服务器S1的随机数
-        BigEndianBuffer::WriteBytes(buffer, kC1C2S1S2Size, offset,
+        ByteIO::WriteBytes(buffer, kC1C2S1S2Size, offset,
                                     s1_data + 8, kC1C2S1S2Size - 8);
         return kC1C2S1S2Size;
     }
