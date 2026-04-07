@@ -1,5 +1,5 @@
-#ifndef RTMP_RTMPHANDSHAKE_H
-#define RTMP_RTMPHANDSHAKE_H
+#ifndef NET_RTMPHANDSHAKE_H
+#define NET_RTMPHANDSHAKE_H
 
 #include <ctime>
 #include <string>
@@ -9,7 +9,7 @@
 #include "net/BufferReader.h"
 #include "base/BigEndianBuffer.h"
 
-namespace lsy::rtmp {
+namespace lsy::net::rtmp {
 
 class RtmpHandshake;
 
@@ -51,12 +51,12 @@ public:
 
     // 解析握手包并生成响应数据
     // 返回响应数据的长度, 输入的握手数据不足返回0, 输入参数非法返回-2, 握手校验失败返回-1
-    int Parse(net::BufferReader &in_buffer, char *res_buf,
-              size_t res_buf_size) {
+    int Parse(BufferReader &in_buffer, char *out_buf,
+              size_t out_buf_size) {
         if (handshake_state_ == HANDSHAKE_COMPLETE) {
             return 0;
         }
-        if (!res_buf) {
+        if (!out_buf) {
             return -2;
         }
         size_t res_size = 0;
@@ -81,17 +81,17 @@ public:
             }
 
             // 3. 构建合并包 S0+S1+S2 (3073字节)
-            if (res_buf_size < kS0S1S2Total) {
+            if (out_buf_size < kS0S1S2Total) {
                 return -2;
             }
-            size_t s0s1_len = BuildS0S1(res_buf, res_buf_size);
-            size_t s2_len = BuildS2(res_buf + s0s1_len, res_buf_size - s0s1_len,
+            size_t s0s1_len = BuildS0S1(out_buf, out_buf_size);
+            size_t s2_len = BuildS2(out_buf + s0s1_len, out_buf_size - s0s1_len,
                                     c1);
             res_size = s0s1_len + s2_len;
 
             // 4. 缓存 S1 的数据
             s1_data_ = std::make_unique<uint8_t[]>(kC1C2S1S2Size);
-            std::memcpy(s1_data_.get(), res_buf + 1, kC1C2S1S2Size);
+            std::memcpy(s1_data_.get(), out_buf + 1, kC1C2S1S2Size);
 
             // 5. 消耗已处理的数据
             in_buffer.Retrieve(kC0C1Total);
@@ -125,7 +125,7 @@ public:
             }
 
             // 4. 构建C2回显包
-            res_size = BuildC2(res_buf, res_buf_size, s1);
+            res_size = BuildC2(out_buf, out_buf_size, s1);
             if (res_size == 0) {
                 return -2;
             }
@@ -159,7 +159,7 @@ public:
         return static_cast<int>(res_size);
     }
 
-    bool IsCompleted() const {
+    [[nodiscard]] bool Completed() const {
         return handshake_state_ == HANDSHAKE_COMPLETE;
     }
 
@@ -274,6 +274,6 @@ private:
     std::unique_ptr<uint8_t[]> s1_data_;
 };
 
-} // lsy::rtmp
+} // lsy::net::rtmp
 
-#endif // RTMP_RTMPHANDSHAKE_H
+#endif // NET_RTMPHANDSHAKE_H
