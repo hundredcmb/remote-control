@@ -29,8 +29,10 @@ add_executable(${TARGET_NAME}
         net/TcpServer.h
         net/example/EchoServer.h
         net/rtmp/RtmpHandshake.h
-        net/rtmp/RtmpChunk.h
         net/rtmp/RtmpMessage.h
+        net/rtmp/RtmpMessageIO.h
+        net/rtmp/RtmpAmf0.h
+        net/rtmp/RtmpAmf0.cpp
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

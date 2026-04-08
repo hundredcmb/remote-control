@@ -5,35 +5,46 @@
 
 namespace lsy::net::rtmp {
 
-using ChunkStreamID = uint32_t;
-
-struct RtmpMessageHeader {
-    uint8_t timestamp[3]{};
-    uint8_t length[3]{};
-    uint8_t type_id{};
-    uint8_t stream_id[4]{};
-};
-
 struct RtmpMessage {
+    friend void swap(RtmpMessage &a, RtmpMessage &b) noexcept {
+        std::swap(a.real_timestamp, b.real_timestamp);
+        std::swap(a.timestamp, b.timestamp);
+        std::swap(a.extend_timestamp, b.extend_timestamp);
+        std::swap(a.has_extend_ts, b.has_extend_ts);
+        std::swap(a.csid, b.csid);
+        std::swap(a.type_id, b.type_id);
+        std::swap(a.stream_id, b.stream_id);
+        std::swap(a.payload, b.payload);
+        std::swap(a.payload_len, b.payload_len);
+        std::swap(a.payload_offset, b.payload_offset);
+    }
+
+    RtmpMessage() = default;
+
+    RtmpMessage(RtmpMessage &&other) noexcept {
+        swap(*this, other);
+    }
+
+    RtmpMessage &operator=(RtmpMessage other) noexcept {
+        swap(*this, other);
+        return *this;
+    }
+
+    void Clear() {
+        RtmpMessage empty;
+        swap(*this, empty);
+    }
+
+    uint64_t real_timestamp{};
     uint32_t timestamp{};
-    uint32_t timestamp_delta = 0;
-    uint32_t length{};
+    uint32_t extend_timestamp{};
+    bool has_extend_ts = false;
+    uint8_t csid{};
     uint8_t type_id{};
     uint32_t stream_id{};
-    uint32_t extend_timestamp{};
-    uint32_t extend_timestamp_delta{};
-    uint8_t csid{};
-    uint32_t index{};
-    std::shared_ptr<uint8_t[]> payload;
-    uint64_t _timestamp{};              // 内部时间戳
-    uint8_t code_id{};
-
-    bool has_extend_ts = false;
-    bool use_timestamp_delta = false;
-
-    [[nodiscard]] bool Completed() const {
-        return length == index && length > 0 && payload;
-    }
+    std::unique_ptr<uint8_t[]> payload;
+    uint32_t payload_len{};
+    uint32_t payload_offset{};
 };
 
 } // lsy::net::rtmp

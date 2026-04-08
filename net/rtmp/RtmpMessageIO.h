@@ -1,46 +1,81 @@
 #ifndef NET_RTMPCHUNK_H
 #define NET_RTMPCHUNK_H
 
+#include "base/ByteIO.h"
 #include "net/BufferReader.h"
 #include "net/rtmp/RtmpMessage.h"
-#include "base/ByteIO.h"
 
 #include <map>
 
 namespace lsy::net::rtmp {
 
-class RtmpChunk {
+using ChunkStreamID = uint32_t;
+
+class RtmpMessageIO {
 public:
-    enum State {
+    enum State : uint8_t {
         PARSE_HEADER,
         PARSE_BODY,
     };
 
-    explicit RtmpChunk(int stream_id, int in_chunk_size = 128,
-                       int out_chunk_size = 128)
-        : state_(PARSE_HEADER),
-          chunk_stream_id_(0),
+    explicit RtmpMessageIO(int stream_id, int in_chunk_size = 128,
+                           int out_chunk_size = 128)
+        : state_(State::PARSE_HEADER),
+          current_csid_(0),
           stream_id_(stream_id),
           in_chunk_size_(in_chunk_size),
           out_chunk_size_(out_chunk_size) {
     }
 
-    ~RtmpChunk() = default;
+    ~RtmpMessageIO() = default;
 
     int Parse(BufferReader &in_buffer, RtmpMessage &out_rtmp_msg) {
-        return 0;
+        if (in_buffer.ReadableBytes() == 0) {
+            return 0;
+        }
+
+        int ret = 0;
+        size_t offset = 0;
+        if (state_ == State::PARSE_HEADER) {
+            ret = ParseChunkHeader(in_buffer);
+            if (ret <= 0) {
+                return ret;
+            }
+            offset += ret;
+        } else {
+            ret = ParseChunkBody(in_buffer);
+            if (ret <= 0) {
+                return ret;
+            }
+            offset += ret;
+
+            // 如果 Message 解析完毕, 就返回 Message 数据
+            auto it = rtmp_messages_.find(current_csid_);
+            if (it == rtmp_messages_.end()) {
+                return -1;
+            }
+            RtmpMessage &rtmp_msg = it->second;
+            if (rtmp_msg.payload_offset == rtmp_msg.payload_len) {
+                out_rtmp_msg = std::move(rtmp_msg);
+                current_csid_ = 0;
+                state_ = State::PARSE_HEADER;
+                rtmp_messages_.erase(it);
+            }
+        }
+
+        return static_cast<int>(offset);
     }
 
-    int CreateChunk(ChunkStreamID csid, const RtmpMessage &rtmp_msg,
-                    uint8_t *buf, size_t buf_size) const {
+    int CreateChunks(ChunkStreamID csid, const RtmpMessage &rtmp_msg,
+                     uint8_t *buf, size_t buf_size) const {
         uint8_t *payload = rtmp_msg.payload.get();
         if (!payload) {
             return -1;
         }
-        const bool need_extend_ts = rtmp_msg._timestamp > 0xFFFFFF;
+        const bool need_extend_ts = rtmp_msg.real_timestamp > 0xFFFFFF;
 
         // 写入首个 Chunk 的 BasicHeader
-        size_t buf_offset = 0, payload_offset = 0, payload_remaining = rtmp_msg.length;
+        size_t buf_offset = 0, payload_offset = 0, payload_remaining = rtmp_msg.payload_len;
         int basic_header_len = CreateBasicHeader(0, csid, buf, buf_size);
         if (basic_header_len <= 0) {
             return -1;
@@ -59,7 +94,7 @@ public:
         // 写入首个 Chunk 的扩展时间戳(大端)
         if (need_extend_ts) {
             if (!ByteIO::WriteUInt32BE(buf, buf_size, buf_offset,
-                                       rtmp_msg._timestamp)) {
+                                       rtmp_msg.real_timestamp)) {
                 return -1;
             }
         }
@@ -84,7 +119,7 @@ public:
 
                 // 写入后续 Chunk 的扩展时间戳
                 if (need_extend_ts) {
-                    uint32_t extend_ts = rtmp_msg._timestamp;
+                    uint32_t extend_ts = rtmp_msg.real_timestamp;
                     if (!ByteIO::WriteUInt32BE(buf, buf_size, buf_offset,
                                                extend_ts)) {
                         return -1;
@@ -120,7 +155,7 @@ public:
     }
 
 private:
-    // 解析 Chunk 数据, 返回解析的字节数, 返回-1表示解析失败, 返回0表示数据不足
+    // 解析一个 Chunk 头, 返回解析的字节数, 返回-1表示解析失败, 返回0表示数据不足
     int ParseChunkHeader(BufferReader &buffer) {
         auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
         if (!buf) {
@@ -161,35 +196,31 @@ private:
             it = rtmp_messages_.emplace(csid, RtmpMessage()).first;
         }
         RtmpMessage &rtmp_msg = it->second;
+        if (fmt == 0) {
+            rtmp_msg.Clear();
+        }
+        rtmp_msg.csid = csid;
 
         // 解析 MessageHeader
         uint32_t ts_value = 0, extend_ts = 0;
-        bool current_need_extend_ts = false;
+        bool need_extend_ts = false;
         if (fmt <= 2) {
-            if (!ByteIO::ReadUInt24BE(buf, buf_size, offset, ts_value))
-                return 0;
-            current_need_extend_ts = (ts_value == 0xFFFFFF);
-            rtmp_msg.has_extend_ts = current_need_extend_ts;
+            ByteIO::ReadUInt24BE(buf, buf_size, offset, ts_value);
+            need_extend_ts = (ts_value == 0xFFFFFF);
+            rtmp_msg.has_extend_ts = need_extend_ts;
         } else {
-            current_need_extend_ts = rtmp_msg.has_extend_ts;
+            need_extend_ts = rtmp_msg.has_extend_ts;
         }
         if (fmt <= 1) {
-            if (!ByteIO::ReadUInt24BE(buf, buf_size, offset,
-                                      rtmp_msg.length))
-                return 0;
-            if (!ByteIO::ReadUInt8(buf, buf_size, offset,
-                                   rtmp_msg.type_id))
-                return 0;
+            ByteIO::ReadUInt24BE(buf, buf_size, offset, rtmp_msg.payload_len);
+            ByteIO::ReadUInt8(buf, buf_size, offset, rtmp_msg.type_id);
         }
         if (fmt == 0) {
-            if (!ByteIO::ReadUInt32LE(buf, buf_size, offset,
-                                      rtmp_msg.stream_id))
-                return 0;
-            rtmp_msg.index = 0;
+            ByteIO::ReadUInt32LE(buf, buf_size, offset, rtmp_msg.stream_id);
         }
 
         // 解析扩展时间戳
-        if (current_need_extend_ts) {
+        if (need_extend_ts) {
             if (!ByteIO::ReadUInt32BE(buf, buf_size, offset, extend_ts)) {
                 return 0;
             }
@@ -197,36 +228,69 @@ private:
 
         // 更新时间戳
         if (fmt == 0) {
-            rtmp_msg.index = 0;
-            rtmp_msg._timestamp = current_need_extend_ts ? extend_ts : ts_value;
-            rtmp_msg.timestamp = ts_value;
-            rtmp_msg.extend_timestamp = extend_ts;
-            rtmp_msg.use_timestamp_delta = false;
-            if (current_need_extend_ts) {
+            rtmp_msg.payload_offset = 0;
+            if (need_extend_ts) {
                 rtmp_msg.extend_timestamp = extend_ts;
+                rtmp_msg.real_timestamp = extend_ts;
             } else {
                 rtmp_msg.timestamp = ts_value;
+                rtmp_msg.real_timestamp = ts_value;
             }
-        } else {
-            if (fmt == 1 || fmt == 2) {
-                rtmp_msg.use_timestamp_delta = true;
-                rtmp_msg.timestamp_delta = ts_value;
-                rtmp_msg.extend_timestamp_delta = extend_ts;
-                if (current_need_extend_ts) {
-                    rtmp_msg.extend_timestamp += extend_ts;
-                } else {
-                    rtmp_msg.timestamp += ts_value;
-                }
+        } else if (fmt == 1 || fmt == 2) {
+            if (need_extend_ts) {
+                rtmp_msg.extend_timestamp = extend_ts;
+                rtmp_msg.real_timestamp += extend_ts;
+            } else {
+                rtmp_msg.timestamp = ts_value;
+                rtmp_msg.real_timestamp += ts_value;
             }
-            ++rtmp_msg.index;
         }
 
+        state_ = State::PARSE_BODY;
+        current_csid_ = rtmp_msg.csid = csid;
+
+        buffer.Retrieve(offset);
         return static_cast<int>(offset);
     }
 
+    // 解析一个 Chunk 载荷, 返回解析的字节数, 返回-1表示解析失败, 返回0表示数据不足
     int ParseChunkBody(BufferReader &buffer) {
+        auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
+        if (!buf) {
+            return 0;
+        }
+        if (current_csid_ == 0) {
+            return -1;
+        }
 
-        return 0;
+        auto it = rtmp_messages_.find(current_csid_);
+        if (it == rtmp_messages_.end()) {
+            return -1;
+        }
+        RtmpMessage &rtmp_msg = it->second;
+
+        // 读取当前 Chunk 的 payload 数据
+        size_t offset = 0, buf_size = buffer.ReadableBytes();
+        uint32_t chunk_size = rtmp_msg.payload_len - rtmp_msg.payload_offset;
+        if (chunk_size > in_chunk_size_) {
+            chunk_size = in_chunk_size_;
+        }
+        if (chunk_size > 0) {
+            if (!rtmp_msg.payload) {
+                rtmp_msg.payload = std::make_unique<uint8_t[]>(
+                    rtmp_msg.payload_len);
+            }
+            uint8_t *payload = rtmp_msg.payload.get() + rtmp_msg.payload_offset;
+            if (!ByteIO::ReadBytes(buf, buf_size, offset, payload,
+                                   chunk_size)) {
+                return 0;
+            }
+            rtmp_msg.payload_offset += chunk_size;
+        }
+        state_ = State::PARSE_HEADER;
+
+        buffer.Retrieve(offset);
+        return static_cast<int>(offset);
     }
 
     static int CreateBasicHeader(uint8_t fmt, ChunkStreamID csid, uint8_t *buf,
@@ -268,10 +332,11 @@ private:
             return -1;
         }
         size_t offset = 0;
-        const bool need_extend_ts = (rtmp_msg._timestamp >= 0xFFFFFF);
+        const bool need_extend_ts = (rtmp_msg.real_timestamp >= 0xFFFFFF);
         if (fmt <= 2) {
             // 写入 3B 时间戳(大端)
-            uint32_t ts_field = need_extend_ts ? 0xFFFFFF : rtmp_msg._timestamp;
+            uint32_t ts_field = need_extend_ts ? 0xFFFFFF
+                                               : rtmp_msg.real_timestamp;
             if (!ByteIO::WriteUInt24BE(buf, buf_size, offset, ts_field)) {
                 return -1;
             }
@@ -279,7 +344,7 @@ private:
         if (fmt <= 1) {
             // 写入 3B message长度(大端)
             if (!ByteIO::WriteUInt24BE(buf, buf_size, offset,
-                                       rtmp_msg.length)) {
+                                       rtmp_msg.payload_len)) {
                 return -1;
             }
             // 写入 1B message类型ID
@@ -299,7 +364,7 @@ private:
     }
 
     State state_;
-    int chunk_stream_id_;
+    ChunkStreamID current_csid_;
     int stream_id_;
     uint32_t in_chunk_size_;
     uint32_t out_chunk_size_;
