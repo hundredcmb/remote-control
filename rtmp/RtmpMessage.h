@@ -1,5 +1,5 @@
-#ifndef NET_RTMPMESSAGE_H
-#define NET_RTMPMESSAGE_H
+#ifndef RTMP_RTMPMESSAGE_H
+#define RTMP_RTMPMESSAGE_H
 
 #include <memory>
 
@@ -49,4 +49,4 @@ struct RtmpMessage {
 
 } // lsy::net::rtmp
 
-#endif // NET_RTMPMESSAGE_H
+#endif // RTMP_RTMPMESSAGE_H

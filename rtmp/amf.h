@@ -1,5 +1,5 @@
-#ifndef NET_AMF0_H
-#define NET_AMF0_H
+#ifndef RTMP_AMF0_H
+#define RTMP_AMF0_H
 
 #include <map>
 #include <memory>
@@ -148,4 +148,4 @@ private:
 
 } // lsy::net::rtmp
 
-#endif // NET_AMF0_H
+#endif // RTMP_AMF0_H

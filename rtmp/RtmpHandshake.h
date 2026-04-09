@@ -1,5 +1,5 @@
-#ifndef NET_RTMPHANDSHAKE_H
-#define NET_RTMPHANDSHAKE_H
+#ifndef RTMP_RTMPHANDSHAKE_H
+#define RTMP_RTMPHANDSHAKE_H
 
 #include <ctime>
 #include <string>
@@ -276,4 +276,4 @@ private:
 
 } // lsy::net::rtmp
 
-#endif // NET_RTMPHANDSHAKE_H
+#endif // RTMP_RTMPHANDSHAKE_H

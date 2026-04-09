@@ -1,7 +1,7 @@
 #ifndef NET_EVENTLOOPTHREADPOOL_H
 #define NET_EVENTLOOPTHREADPOOL_H
 
-#include "base/Noncopyable.h"
+#include "base/noncopyable.h"
 #include "EpollTaskScheduler.h"
 
 namespace lsy::net {
@@ -16,7 +16,7 @@ using ThreadPtr = std::shared_ptr<std::thread>;
  * @details 基于EpollTaskScheduler实现的IO线程池，管理多个事件循环线程，
  *          提供负载均衡的调度器获取接口，实现网络IO的多线程并发处理
  */
-class EventLoopThreadPool : Noncopyable {
+class EventLoopThreadPool : noncopyable {
 public:
     /**
      * @brief 构造函数

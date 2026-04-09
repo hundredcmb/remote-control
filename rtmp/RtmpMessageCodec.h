@@ -1,9 +1,9 @@
-#ifndef NET_RTMPMESSAGECODEC_H
-#define NET_RTMPMESSAGECODEC_H
+#ifndef RTMP_RTMPMESSAGECODEC_H
+#define RTMP_RTMPMESSAGECODEC_H
 
 #include "base/ByteIO.h"
 #include "net/BufferReader.h"
-#include "net/rtmp/RtmpMessage.h"
+#include "RtmpMessage.h"
 
 #include <map>
 
@@ -374,4 +374,4 @@ private:
 
 } // lsy::net::rtmp
 
-#endif // NET_RTMPMESSAGECODEC_H
+#endif // RTMP_RTMPMESSAGECODEC_H

@@ -13,7 +13,8 @@ set(TARGET_NAME ${PROJECT_NAME})
 
 add_executable(${TARGET_NAME}
         main.cpp
-        base/Noncopyable.h
+        examples/EchoServer.h
+        base/noncopyable.h
         base/ByteIO.h
         net/TcpSocket.h
         net/TcpSocket.cpp
@@ -27,12 +28,13 @@ add_executable(${TARGET_NAME}
         net/TcpConnection.h
         net/Acceptor.h
         net/TcpServer.h
-        net/example/EchoServer.h
-        net/rtmp/RtmpHandshake.h
-        net/rtmp/RtmpMessage.h
-        net/rtmp/RtmpMessageCodec.h
-        net/rtmp/amf.h
-        net/rtmp/amf.cpp
+        rtmp/RtmpHandshake.h
+        rtmp/RtmpMessage.h
+        rtmp/RtmpMessageCodec.h
+        rtmp/amf.h
+        rtmp/amf.cpp
+        rtmp/RtmpSink.h
+        rtmp/RtmpSession.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

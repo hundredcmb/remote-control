@@ -1,4 +1,4 @@
-#include "net/rtmp/amf.h"
+#include "amf.h"
 
 #include <cstring>
 
