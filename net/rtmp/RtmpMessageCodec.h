@@ -1,5 +1,5 @@
-#ifndef NET_RTMPCHUNK_H
-#define NET_RTMPCHUNK_H
+#ifndef NET_RTMPMESSAGECODEC_H
+#define NET_RTMPMESSAGECODEC_H
 
 #include "base/ByteIO.h"
 #include "net/BufferReader.h"
@@ -11,15 +11,15 @@ namespace lsy::net::rtmp {
 
 using ChunkStreamID = uint32_t;
 
-class RtmpMessageIO {
+class RtmpMessageCodec {
 public:
     enum State : uint8_t {
         PARSE_HEADER,
         PARSE_BODY,
     };
 
-    explicit RtmpMessageIO(int stream_id, int in_chunk_size = 128,
-                           int out_chunk_size = 128)
+    explicit RtmpMessageCodec(int stream_id, int in_chunk_size = 128,
+                              int out_chunk_size = 128)
         : state_(State::PARSE_HEADER),
           current_csid_(0),
           stream_id_(stream_id),
@@ -27,7 +27,7 @@ public:
           out_chunk_size_(out_chunk_size) {
     }
 
-    ~RtmpMessageIO() = default;
+    ~RtmpMessageCodec() = default;
 
     int Parse(BufferReader &in_buffer, RtmpMessage &out_rtmp_msg) {
         if (in_buffer.ReadableBytes() == 0) {
@@ -374,4 +374,4 @@ private:
 
 } // lsy::net::rtmp
 
-#endif // NET_RTMPCHUNK_H
+#endif // NET_RTMPMESSAGECODEC_H
