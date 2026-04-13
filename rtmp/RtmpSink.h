@@ -5,6 +5,11 @@
 
 namespace lsy::net::rtmp {
 
+class RtmpSink;
+
+using RtmpSinkWeakPtr = std::weak_ptr<RtmpSink>;
+using RtmpSinkSharedPtr = std::shared_ptr<RtmpSink>;
+
 class RtmpSink {
 public:
     RtmpSink() = default;
@@ -17,9 +22,7 @@ public:
                                std::shared_ptr<char> payload,
                                uint32_t payload_size) = 0;
 
-    virtual bool SendMetaData(const AmfObjects &metaData) {
-        return true;
-    };
+    virtual bool SendMetaData(const AmfObjects &meta_data) = 0;
 
     virtual bool IsPlayer() {
         return false;

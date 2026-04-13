@@ -9,8 +9,6 @@
 
 namespace lsy::net::rtmp {
 
-using ChunkStreamID = uint32_t;
-
 class RtmpMessageCodec {
 public:
     enum State : uint8_t {

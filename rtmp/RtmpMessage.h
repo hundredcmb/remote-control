@@ -5,7 +5,50 @@
 
 namespace lsy::net::rtmp {
 
+using ChunkStreamID = uint32_t;
+
+enum MediaDataType : uint32_t {
+    AVC_SEQUENCE_HEADER = 0x18,
+    AAC_SEQUENCE_HEADER = 0x19,
+};
+
 struct RtmpMessage {
+    enum Type : uint32_t {
+        SET_CHUNK_SIZE = 1,     // 设置块大小
+        ABORT = 2,              // 中止消息
+        ACKNOWLEDGEMENT = 3,    // 确认接收
+        USER_CONTROL = 4,       // 用户控制消息
+        WINDOW_ACK_SIZE = 5,    // 窗口确认大小
+        SET_PEER_BANDWIDTH = 6, // 设置对等端带宽
+        AUDIO = 8,              // 音频数据
+        VIDEO = 9,              // 视频数据
+#if 0
+        DATA_AMF0 = 16,         // AMF0 格式数据消息 (元数据)
+        SHARED_OBJECT_AMF0 = 17,// AMF0 共享对象消息
+        COMMAND_AMF0 = 18,      // AMF0 命令消息 (connect/play/publish)
+        DATA_AMF3 = 19,         // AMF3 格式数据消息
+        SHARED_OBJECT_AMF3 = 20,// AMF3 共享对象消息
+        COMMAND_AMF3 = 21,      // AMF3 命令消息
+        AGGREGATE = 22,         // 聚合消息
+#else
+        NOTIFY = 0x12,
+        INVOKE = 0x14,
+#endif
+    };
+
+    enum ChunkStream : ChunkStreamID {
+        CONTROL_ID = 2,
+        INVOKE_ID = 3,
+        AUDIO_ID = 4,
+        VIDEO_ID = 5,
+        DATA_ID = 6,
+    };
+
+    enum Codec : uint32_t {
+        AVC_ID = 7,
+        AAC_ID = 10,
+    };
+
     friend void swap(RtmpMessage &a, RtmpMessage &b) noexcept {
         std::swap(a.real_timestamp, b.real_timestamp);
         std::swap(a.timestamp, b.timestamp);
