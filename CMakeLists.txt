@@ -35,6 +35,8 @@ add_executable(${TARGET_NAME}
         rtmp/amf.cpp
         rtmp/RtmpSink.h
         rtmp/RtmpSession.h
+        rtmp/RtmpConnection.h
+        rtmp/RtmpConnection.cpp
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

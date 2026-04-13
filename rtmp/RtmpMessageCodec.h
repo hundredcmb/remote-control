@@ -16,11 +16,9 @@ public:
         PARSE_BODY,
     };
 
-    explicit RtmpMessageCodec(int stream_id, int in_chunk_size = 128,
-                              int out_chunk_size = 128)
+    explicit RtmpMessageCodec(int in_chunk_size = 128, int out_chunk_size = 128)
         : state_(State::PARSE_HEADER),
           current_csid_(0),
-          stream_id_(stream_id),
           in_chunk_size_(in_chunk_size),
           out_chunk_size_(out_chunk_size) {
     }
@@ -53,7 +51,8 @@ public:
                 return -1;
             }
             RtmpMessage &rtmp_msg = it->second;
-            if (rtmp_msg.payload_offset == rtmp_msg.payload_len) {
+            if (rtmp_msg.payload_offset_ == rtmp_msg.payload_len_) {
+                rtmp_msg.is_completed_ = true;
                 out_rtmp_msg = std::move(rtmp_msg);
                 current_csid_ = 0;
                 state_ = State::PARSE_HEADER;
@@ -66,14 +65,14 @@ public:
 
     int CreateChunks(ChunkStreamID csid, const RtmpMessage &rtmp_msg,
                      uint8_t *buf, size_t buf_size) const {
-        uint8_t *payload = rtmp_msg.payload.get();
+        uint8_t *payload = rtmp_msg.payload_.get();
         if (!payload) {
             return -1;
         }
         const bool need_extend_ts = rtmp_msg.real_timestamp > 0xFFFFFF;
 
         // 写入首个 Chunk 的 BasicHeader
-        size_t buf_offset = 0, payload_offset = 0, payload_remaining = rtmp_msg.payload_len;
+        size_t buf_offset = 0, payload_offset = 0, payload_remaining = rtmp_msg.payload_len_;
         int basic_header_len = CreateBasicHeader(0, csid, buf, buf_size);
         if (basic_header_len <= 0) {
             return -1;
@@ -144,12 +143,16 @@ public:
         out_chunk_size_ = out_chunk_size;
     }
 
-    void Clear() {
-        rtmp_messages_.clear();
+    [[nodiscard]] uint32_t OutChunkSize() const {
+        return out_chunk_size_;
     }
 
-    [[nodiscard]] int GetStreamId() const {
-        return stream_id_;
+    [[nodiscard]] uint32_t InChunkSize() const {
+        return in_chunk_size_;
+    }
+
+    void Clear() {
+        rtmp_messages_.clear();
     }
 
 private:
@@ -197,7 +200,7 @@ private:
         if (fmt == 0) {
             rtmp_msg.Clear();
         }
-        rtmp_msg.csid = csid;
+        rtmp_msg.csid_ = csid;
 
         // 解析 MessageHeader
         uint32_t ts_value = 0, extend_ts = 0;
@@ -205,16 +208,16 @@ private:
         if (fmt <= 2) {
             ByteIO::ReadUInt24BE(buf, buf_size, offset, ts_value);
             need_extend_ts = (ts_value == 0xFFFFFF);
-            rtmp_msg.has_extend_ts = need_extend_ts;
+            rtmp_msg.has_extend_ts_ = need_extend_ts;
         } else {
-            need_extend_ts = rtmp_msg.has_extend_ts;
+            need_extend_ts = rtmp_msg.has_extend_ts_;
         }
         if (fmt <= 1) {
-            ByteIO::ReadUInt24BE(buf, buf_size, offset, rtmp_msg.payload_len);
-            ByteIO::ReadUInt8(buf, buf_size, offset, rtmp_msg.type_id);
+            ByteIO::ReadUInt24BE(buf, buf_size, offset, rtmp_msg.payload_len_);
+            ByteIO::ReadUInt8(buf, buf_size, offset, rtmp_msg.type_id_);
         }
         if (fmt == 0) {
-            ByteIO::ReadUInt32LE(buf, buf_size, offset, rtmp_msg.stream_id);
+            ByteIO::ReadUInt32LE(buf, buf_size, offset, rtmp_msg.stream_id_);
         }
 
         // 解析扩展时间戳
@@ -226,7 +229,7 @@ private:
 
         // 更新时间戳
         if (fmt == 0) {
-            rtmp_msg.payload_offset = 0;
+            rtmp_msg.payload_offset_ = 0;
             if (need_extend_ts) {
                 rtmp_msg.extend_timestamp = extend_ts;
                 rtmp_msg.real_timestamp = extend_ts;
@@ -245,7 +248,7 @@ private:
         }
 
         state_ = State::PARSE_BODY;
-        current_csid_ = rtmp_msg.csid = csid;
+        current_csid_ = rtmp_msg.csid_ = csid;
 
         buffer.Retrieve(offset);
         return static_cast<int>(offset);
@@ -267,23 +270,23 @@ private:
         }
         RtmpMessage &rtmp_msg = it->second;
 
-        // 读取当前 Chunk 的 payload 数据
+        // 读取当前 Chunk 的 payload_ 数据
         size_t offset = 0, buf_size = buffer.ReadableBytes();
-        uint32_t chunk_size = rtmp_msg.payload_len - rtmp_msg.payload_offset;
+        uint32_t chunk_size = rtmp_msg.payload_len_ - rtmp_msg.payload_offset_;
         if (chunk_size > in_chunk_size_) {
             chunk_size = in_chunk_size_;
         }
         if (chunk_size > 0) {
-            if (!rtmp_msg.payload) {
-                rtmp_msg.payload = std::make_unique<uint8_t[]>(
-                    rtmp_msg.payload_len);
+            if (!rtmp_msg.payload_) {
+                rtmp_msg.payload_ = std::make_unique<uint8_t[]>(
+                    rtmp_msg.payload_len_);
             }
-            uint8_t *payload = rtmp_msg.payload.get() + rtmp_msg.payload_offset;
+            uint8_t *payload = rtmp_msg.payload_.get() + rtmp_msg.payload_offset_;
             if (!ByteIO::ReadBytes(buf, buf_size, offset, payload,
                                    chunk_size)) {
                 return 0;
             }
-            rtmp_msg.payload_offset += chunk_size;
+            rtmp_msg.payload_offset_ += chunk_size;
         }
         state_ = State::PARSE_HEADER;
 
@@ -342,19 +345,19 @@ private:
         if (fmt <= 1) {
             // 写入 3B message长度(大端)
             if (!ByteIO::WriteUInt24BE(buf, buf_size, offset,
-                                       rtmp_msg.payload_len)) {
+                                       rtmp_msg.payload_len_)) {
                 return -1;
             }
             // 写入 1B message类型ID
             if (!ByteIO::WriteUInt8(buf, buf_size, offset,
-                                    rtmp_msg.type_id)) {
+                                    rtmp_msg.type_id_)) {
                 return -1;
             }
         }
         if (fmt == 0) {
             // 写入 4B message流ID(小端)
             if (!ByteIO::WriteUInt32LE(buf, buf_size, offset,
-                                       rtmp_msg.stream_id)) {
+                                       rtmp_msg.stream_id_)) {
                 return -1;
             }
         }
@@ -363,7 +366,6 @@ private:
 
     State state_;
     ChunkStreamID current_csid_;
-    int stream_id_;
     uint32_t in_chunk_size_;
     uint32_t out_chunk_size_;
     std::map<ChunkStreamID, RtmpMessage> rtmp_messages_;

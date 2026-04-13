@@ -8,6 +8,8 @@
 #include <memory>
 #include <cstring>
 
+#include "base/noncopyable.h"
+
 namespace lsy::net {
 
 /**
@@ -37,9 +39,9 @@ public:
      * @param index 数据发送起始偏移量，默认为0
      * @return  添加成功返回true，缓冲区满/参数非法返回false
      */
-    bool Append(const std::shared_ptr<char> &data, uint32_t size,
+    bool Append(const std::shared_ptr<char[]> &data, uint32_t size,
                 uint32_t index = 0) {
-        if (size < index) {
+        if (size == 0 || size < index || !data) {
             return false;
         }
         if (buffer_.size() >= max_queue_length_) {
@@ -50,21 +52,20 @@ public:
     }
 
     /**
-     * @brief 添加普通字符指针类型的数据包到发送缓冲区
+     * @brief 添加普通字符指针类型的数据包到发送缓冲区(会多一次数据拷贝)
      * @param data 原始数据指针
      * @param size 数据包总长度
      * @param index 数据发送起始偏移量，默认为0
      * @return 添加成功返回true，缓冲区满/参数非法返回false
      */
     bool Append(const char *data, uint32_t size, uint32_t index = 0) {
-        if (size < index) {
+        if (size == 0 || size < index || !data) {
             return false;
         }
         if (buffer_.size() >= max_queue_length_) {
             return false;
         }
-        std::shared_ptr<char> data_ptr(new char[size],
-                                       std::default_delete<char[]>());
+        std::shared_ptr<char[]> data_ptr(new char[size]);
         std::memcpy(data_ptr.get(), data, size);
         buffer_.emplace(data_ptr, size, index);
         return true;
@@ -132,18 +133,38 @@ private:
      * @brief 数据包结构体
      * @details 存储待发送数据、数据长度、已发送偏移量
      */
-    struct Packet {
-        std::shared_ptr<char> data;    // 数据存储指针
-        uint32_t size;                 // 数据包总大小
-        uint32_t write_index;          // 已发送数据的偏移量
+    struct Packet : noncopyable {
+        std::shared_ptr<char[]> data;   // 数据存储指针
+        uint32_t size;                  // 数据包总大小
+        uint32_t write_index;           // 已发送数据的偏移量
 
-        Packet(const std::shared_ptr<char> &data, uint32_t size, uint32_t index)
+        Packet(const std::shared_ptr<char[]> &data, uint32_t size,
+               uint32_t index)
             : data(data), size(size), write_index(index) {
+        }
+
+        Packet(Packet &&other) noexcept
+            : data(std::move(other.data)),
+              size(other.size),
+              write_index(other.write_index) {
+            other.size = 0;
+            other.write_index = 0;
+        }
+
+        Packet &operator=(Packet &&other) noexcept {
+            if (this != &other) {
+                data = std::move(other.data);
+                size = other.size;
+                write_index = other.write_index;
+                other.size = 0;
+                other.write_index = 0;
+            }
+            return *this;
         }
     };
 
-    std::queue<Packet> buffer_;               // 数据包发送队列
-    size_t max_queue_length_;                 // 队列最大长度限制
+    std::queue<Packet> buffer_;                     // 数据包发送队列
+    size_t max_queue_length_;                       // 队列最大长度限制
     static constexpr size_t kMaxQueueLength = 8192; // 默认最大队列长度
 };
 

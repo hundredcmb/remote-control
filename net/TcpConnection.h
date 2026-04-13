@@ -109,10 +109,11 @@ public:
      * @param data 待发送数据的共享指针
      * @param size 待发送数据的长度（字节）
      */
-    void Send(const std::shared_ptr<char> &data, uint32_t size) {
+    void Send(const std::shared_ptr<char[]> &data, uint32_t size) {
         if (!is_closed_) {
-            write_buffer_->Append(data, size);
-            HandleWrite();
+            if (write_buffer_->Append(data, size)) {
+                HandleWrite();
+            }
         }
     }
 
@@ -123,8 +124,9 @@ public:
      */
     void Send(const char *data, size_t size) {
         if (!is_closed_) {
-            write_buffer_->Append(data, size);
-            HandleWrite();
+            if (write_buffer_->Append(data, size)) {
+                HandleWrite();
+            }
         }
     }
 
