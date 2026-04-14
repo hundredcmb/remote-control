@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <cstring>
 #include <unordered_map>
 
 namespace lsy::net::rtmp {
@@ -38,6 +39,20 @@ enum AmfObjectType : uint8_t {
 };
 
 struct AmfObject {
+    AmfObject() = default;
+
+    explicit AmfObject(double number)
+        : type(AMF_NUMBER), amf_number(number) {
+    }
+
+    explicit AmfObject(std::string str)
+        : type(AMF_STRING), amf_string(std::move(str)) {
+    }
+
+    explicit AmfObject(bool boolean)
+        : type(AMF_BOOLEAN), amf_boolean(boolean) {
+    }
+
     AmfObjectType type = AMF_NULL;
     std::string amf_string;
     double amf_number{};
@@ -114,9 +129,19 @@ public:
 
     ~AmfEncoder() = default;
 
-    [[nodiscard]] const char *Data() const { return m_data_.get(); }
+    [[nodiscard]] std::unique_ptr<uint8_t[]> Data() const {
+        auto ret = std::make_unique<uint8_t[]>(m_index_);
+        std::memcpy(ret.get(), m_data_.get(), m_index_);
+        return ret;
+    }
 
-    [[nodiscard]] uint32_t Size() const { return m_index_; }
+    [[nodiscard]] uint32_t Size() const {
+        return m_index_;
+    }
+
+    void Reset() {
+        m_index_ = 0;
+    }
 
     void EncodeString(const char *str, int len, bool isObject = true);
 

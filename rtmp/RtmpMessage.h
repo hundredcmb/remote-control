@@ -10,9 +10,32 @@ using ChunkStreamID = uint32_t;
 enum MediaDataType : uint32_t {
     AVC_SEQUENCE_HEADER = 0x18,
     AAC_SEQUENCE_HEADER = 0x19,
+    AAC_AUDIO = 8,
+    AVC_VIDEO = 9,
 };
 
-struct RtmpMessage {
+struct Flv {
+    static constexpr uint32_t FRAME_TYPE_I = 1;
+    static constexpr uint32_t FRAME_TYPE_P = 2;
+    static constexpr uint32_t FRAME_TYPE_B = 3;
+    static constexpr uint32_t CODEC_ID_AVC = 7;
+    static constexpr uint32_t CODEC_ID_HEVC = 12;
+    static constexpr uint32_t SOUND_FORMAT_AAC = 10;
+    static constexpr uint32_t AAC_PACKET_TYPE_SEQUENCE_HEADER = 0;
+    static constexpr uint32_t AAC_PACKET_TYPE_RAW_DATA = 1;
+    static constexpr uint32_t AVC_PACKET_TYPE_SEQUENCE_HEADER = 0;
+    static constexpr uint32_t AVC_PACKET_TYPE_NALU = 1;
+
+    Flv() = delete;
+};
+
+struct RtmpMessage : noncopyable {
+    static constexpr ChunkStreamID CSID_CONTROL = 2;
+    static constexpr ChunkStreamID CSID_INVOKE = 3;
+    static constexpr ChunkStreamID CSID_AUDIO = 4;
+    static constexpr ChunkStreamID CSID_VIDEO = 5;
+    static constexpr ChunkStreamID CSID_DATA = 6;
+
     enum Type : uint32_t {
         SET_CHUNK_SIZE = 1,     // 设置块大小
         ABORT = 2,              // 中止消息
@@ -24,19 +47,6 @@ struct RtmpMessage {
         VIDEO = 9,              // 视频数据
         NOTIFY = 0x12,          // AMF0通知
         INVOKE = 0x14,          // AMF0命令
-    };
-
-    enum ChunkStream : ChunkStreamID {
-        CONTROL_ID = 2,
-        INVOKE_ID = 3,
-        AUDIO_ID = 4,
-        VIDEO_ID = 5,
-        DATA_ID = 6,
-    };
-
-    enum Codec : uint32_t {
-        AVC_ID = 7,
-        AAC_ID = 10,
     };
 
     friend class RtmpMessageCodec;
@@ -57,11 +67,20 @@ struct RtmpMessage {
 
     RtmpMessage() = default;
 
-    RtmpMessage(Type type_id, std::unique_ptr<uint8_t[]> &&payload,
+    RtmpMessage(uint8_t type_id, std::unique_ptr<uint8_t[]> &&payload,
                 uint32_t payload_len)
         : type_id_(type_id),
           payload_(std::move(payload)),
           payload_len_(payload_len),
+          is_completed_(true) {
+    }
+
+    RtmpMessage(uint8_t type_id, std::unique_ptr<uint8_t[]> &&payload,
+                uint32_t payload_len, uint32_t stream_id)
+        : type_id_(type_id),
+          payload_(std::move(payload)),
+          payload_len_(payload_len),
+          stream_id_(stream_id),
           is_completed_(true) {
     }
 

@@ -19,7 +19,7 @@ public:
     virtual uint32_t GetId() = 0;
 
     virtual bool SendMediaData(uint8_t type, uint64_t timestamp,
-                               std::shared_ptr<char[]> payload,
+                               std::shared_ptr<uint8_t[]> payload,
                                uint32_t payload_size) = 0;
 
     virtual bool SendMetaData(const AmfObjects &meta_data) = 0;

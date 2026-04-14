@@ -77,22 +77,25 @@ private:
 
     bool SendSetChunkSize();
 
-    bool
-    SendInvokeMessage(uint32_t csid, const std::shared_ptr<char[]> &payload,
-                      uint32_t payload_size);
+    bool SendInvokeMessage(uint32_t csid,
+                           std::unique_ptr<uint8_t[]> &&payload,
+                           uint32_t payload_size);
 
-    bool
-    SendNotifyMessage(uint32_t csid, const std::shared_ptr<char[]> &payload,
-                      uint32_t payload_size);
+    bool SendNotifyMessage(uint32_t csid,
+                           std::unique_ptr<uint8_t[]> &&payload,
+                           uint32_t payload_size);
 
     bool SendMetaData(const AmfObjects &meta_data) override;
 
     bool SendMediaData(uint8_t type, uint64_t timestamp,
-                       std::shared_ptr<char[]> payload,
+                       std::shared_ptr<uint8_t[]> payload,
                        uint32_t payload_size) override;
 
     bool PayloadDecodeOne(const char *payload, size_t payload_len,
                           size_t &offset);
+
+    bool PayloadDecode(const char *payload, size_t payload_len,
+                       size_t &offset, int count);
 
     bool PayloadDecodeString(const char *payload, size_t payload_len,
                              size_t &offset, std::string &str);
@@ -100,9 +103,11 @@ private:
     bool PayloadDecodeObjects(const char *payload, size_t payload_len,
                               size_t &offset, AmfObjects &objs);
 
+    static bool IsAvcKeyFrame(std::unique_ptr<uint8_t[]> &payload, uint32_t payload_size);
+
+    State state_;
     std::shared_ptr<RtmpHandshake> handshake_;
     std::shared_ptr<RtmpMessageCodec> msg_codec_;
-    State connection_state_;
 
     uint32_t peer_bandwidth_ = 5000000;
     uint32_t acknowledgement_size_ = 5000000;
@@ -115,13 +120,14 @@ private:
 
     bool is_playing_ = false;
     bool is_publishing_ = false;
+    bool has_key_frame_ = false;
 
     std::string app_;
     std::string stream_name_;
     std::string stream_path_;
 
-    std::shared_ptr<char[]> avc_sequence_header_;
-    std::shared_ptr<char[]> aac_sequence_header_;
+    std::shared_ptr<uint8_t[]> avc_sequence_header_;
+    std::shared_ptr<uint8_t[]> aac_sequence_header_;
     uint32_t avc_sequence_header_size_ = 0;
     uint32_t aac_sequence_header_size_ = 0;
 };

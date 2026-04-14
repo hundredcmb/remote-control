@@ -2,6 +2,7 @@
 #define RTMP_RTMPMESSAGECODEC_H
 
 #include "base/ByteIO.h"
+#include "base/noncopyable.h"
 #include "net/BufferReader.h"
 #include "RtmpMessage.h"
 
@@ -9,7 +10,7 @@
 
 namespace lsy::net::rtmp {
 
-class RtmpMessageCodec {
+class RtmpMessageCodec : noncopyable {
 public:
     enum State : uint8_t {
         PARSE_HEADER,
@@ -21,9 +22,14 @@ public:
           current_csid_(0),
           in_chunk_size_(in_chunk_size),
           out_chunk_size_(out_chunk_size) {
+        stream_id_ = next_stream_id_++;
     }
 
     ~RtmpMessageCodec() = default;
+
+    [[nodiscard]] uint32_t StreamId() const {
+        return stream_id_;
+    }
 
     int Parse(BufferReader &in_buffer, RtmpMessage &out_rtmp_msg) {
         if (in_buffer.ReadableBytes() == 0) {
@@ -281,7 +287,8 @@ private:
                 rtmp_msg.payload_ = std::make_unique<uint8_t[]>(
                     rtmp_msg.payload_len_);
             }
-            uint8_t *payload = rtmp_msg.payload_.get() + rtmp_msg.payload_offset_;
+            uint8_t *payload =
+                rtmp_msg.payload_.get() + rtmp_msg.payload_offset_;
             if (!ByteIO::ReadBytes(buf, buf_size, offset, payload,
                                    chunk_size)) {
                 return 0;
@@ -365,6 +372,8 @@ private:
     }
 
     State state_;
+    static uint32_t next_stream_id_;
+    uint32_t stream_id_;
     ChunkStreamID current_csid_;
     uint32_t in_chunk_size_;
     uint32_t out_chunk_size_;
