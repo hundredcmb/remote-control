@@ -48,7 +48,7 @@ typedef std::unordered_map<std::string, AmfObject> AmfObjects;
 
 class AmfDecoder {
 public:
-    int Decode(const char *data, int size, int max_decode_count = 1);
+    int Decode(const char *data, size_t size, int max_decode_count = 1);
 
     void Reset() {
         m_obj.type = AMF_NULL;

@@ -22,18 +22,8 @@ struct RtmpMessage {
         SET_PEER_BANDWIDTH = 6, // 设置对等端带宽
         AUDIO = 8,              // 音频数据
         VIDEO = 9,              // 视频数据
-#if 0
-        DATA_AMF0 = 16,         // AMF0 格式数据消息 (元数据)
-        SHARED_OBJECT_AMF0 = 17,// AMF0 共享对象消息
-        COMMAND_AMF0 = 18,      // AMF0 命令消息 (connect/play/publish)
-        DATA_AMF3 = 19,         // AMF3 格式数据消息
-        SHARED_OBJECT_AMF3 = 20,// AMF3 共享对象消息
-        COMMAND_AMF3 = 21,      // AMF3 命令消息
-        AGGREGATE = 22,         // 聚合消息
-#else
-        NOTIFY = 0x12,
-        INVOKE = 0x14,
-#endif
+        NOTIFY = 0x12,          // AMF0通知
+        INVOKE = 0x14,          // AMF0命令
     };
 
     enum ChunkStream : ChunkStreamID {
@@ -103,6 +93,10 @@ struct RtmpMessage {
 
     [[nodiscard]] uint32_t PayloadLen() const {
         return payload_len_;
+    }
+
+    [[nodiscard]] uint32_t StreamId() const {
+        return stream_id_;
     }
 
 private:

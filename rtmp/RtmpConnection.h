@@ -77,17 +77,28 @@ private:
 
     bool SendSetChunkSize();
 
-    bool SendInvokeMessage(uint32_t csid, const std::shared_ptr<char> &payload,
-                           uint32_t payload_size);
+    bool
+    SendInvokeMessage(uint32_t csid, const std::shared_ptr<char[]> &payload,
+                      uint32_t payload_size);
 
-    bool SendNotifyMessage(uint32_t csid, const std::shared_ptr<char> &payload,
-                           uint32_t payload_size);
+    bool
+    SendNotifyMessage(uint32_t csid, const std::shared_ptr<char[]> &payload,
+                      uint32_t payload_size);
 
     bool SendMetaData(const AmfObjects &meta_data) override;
 
     bool SendMediaData(uint8_t type, uint64_t timestamp,
-                       std::shared_ptr<char> payload,
+                       std::shared_ptr<char[]> payload,
                        uint32_t payload_size) override;
+
+    bool PayloadDecodeOne(const char *payload, size_t payload_len,
+                          size_t &offset);
+
+    bool PayloadDecodeString(const char *payload, size_t payload_len,
+                             size_t &offset, std::string &str);
+
+    bool PayloadDecodeObjects(const char *payload, size_t payload_len,
+                              size_t &offset, AmfObjects &objs);
 
     std::shared_ptr<RtmpHandshake> handshake_;
     std::shared_ptr<RtmpMessageCodec> msg_codec_;
@@ -105,8 +116,12 @@ private:
     bool is_playing_ = false;
     bool is_publishing_ = false;
 
-    std::shared_ptr<char> avc_sequence_header_;
-    std::shared_ptr<char> aac_sequence_header_;
+    std::string app_;
+    std::string stream_name_;
+    std::string stream_path_;
+
+    std::shared_ptr<char[]> avc_sequence_header_;
+    std::shared_ptr<char[]> aac_sequence_header_;
     uint32_t avc_sequence_header_size_ = 0;
     uint32_t aac_sequence_header_size_ = 0;
 };

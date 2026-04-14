@@ -20,18 +20,18 @@ public:
 
     virtual ~RtmpSession() = default;
 
-    void SetAvcSequenceHeader(std::shared_ptr<char> avcSequenceHeader,
-                              uint32_t avcSequenceHeaderSize) {
+    void SetAvcSequenceHeader(std::shared_ptr<char[]> avc_sequence_header,
+                              uint32_t avc_sequence_header_size) {
         std::lock_guard<std::mutex> lock(mutex_);
-        avc_sequence_header_ = std::move(avcSequenceHeader);
-        avc_sequence_header_size_ = avcSequenceHeaderSize;
+        avc_sequence_header_ = std::move(avc_sequence_header);
+        avc_sequence_header_size_ = avc_sequence_header_size;
     }
 
-    void SetAacSequenceHeader(std::shared_ptr<char> aacSequenceHeader,
-                              uint32_t aacSequenceHeaderSize) {
+    void SetAacSequenceHeader(std::shared_ptr<char[]> aac_sequence_header,
+                              uint32_t aac_sequence_header_size) {
         std::lock_guard<std::mutex> lock(mutex_);
-        aac_sequence_header_ = std::move(aacSequenceHeader);
-        aac_sequence_header_size_ = aacSequenceHeaderSize;
+        aac_sequence_header_ = std::move(aac_sequence_header);
+        aac_sequence_header_size_ = aac_sequence_header_size;
     }
 
     void AddSink(const std::shared_ptr<RtmpSink> &sink) {
@@ -78,7 +78,7 @@ public:
     }
 
     void SendMediaData(uint8_t type, uint64_t timestamp,
-                       const std::shared_ptr<char> &data, uint32_t size) {
+                       const std::shared_ptr<char[]> &data, uint32_t size) {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto it = rtmp_sinks_.begin(); it != rtmp_sinks_.end();) {
             RtmpSinkSharedPtr sink = it->second.lock();
@@ -105,8 +105,8 @@ private:
     std::mutex mutex_;
     std::weak_ptr<RtmpSink> publisher_;
     std::unordered_map<uint32_t, RtmpSinkWeakPtr> rtmp_sinks_;
-    std::shared_ptr<char> avc_sequence_header_;
-    std::shared_ptr<char> aac_sequence_header_;
+    std::shared_ptr<char[]> avc_sequence_header_;
+    std::shared_ptr<char[]> aac_sequence_header_;
     uint32_t avc_sequence_header_size_ = 0;
     uint32_t aac_sequence_header_size_ = 0;
 };

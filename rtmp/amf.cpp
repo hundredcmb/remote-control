@@ -6,13 +6,13 @@
 
 namespace lsy::net::rtmp {
 
-int AmfDecoder::Decode(const char *data, int size, int max_decode_count) {
-    if (!data || size <= 0) {
+int AmfDecoder::Decode(const char *data, size_t size, int max_decode_count) {
+    if (!data || size == 0) {
         return -1;
     }
 
     const auto *buf = reinterpret_cast<const uint8_t *>(data);
-    const auto buf_len = static_cast<size_t>(size);
+    const size_t buf_len = size;
     size_t offset = 0;
 
     while (offset < buf_len) {

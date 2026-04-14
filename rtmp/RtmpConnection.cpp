@@ -158,11 +158,103 @@ bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
-    return false;
+    size_t offset = 0;
+    const char *payload = reinterpret_cast<const char *>(rtmp_msg.Payload());
+    size_t payload_len = rtmp_msg.PayloadLen();
+    amf_decoder_.Reset();
+
+    // 解析消息名称
+    std::string method;
+    if (!PayloadDecodeString(payload, payload_len, offset, method)) {
+        return false;
+    }
+
+    // 处理不同的方法
+    if (rtmp_msg.StreamId() == 0) {
+        if (!PayloadDecodeOne(payload, payload_len, offset)) {
+            return false;
+        }
+        if (method == "connect") {
+            if (!HandleConnect()) {
+                return false;
+            }
+        } else if (method == "createStream") {
+            if (!HandleCreateStream()) {
+                return false;
+            }
+        } else {
+            fprintf(stderr, "Unsupported invoke method: '%s'\n",
+                    method.c_str());
+            return false;
+        }
+    } else if (rtmp_msg.StreamId() == stream_id_) {
+        if (!PayloadDecodeString(payload, payload_len, offset, stream_name_)) {
+            return false;
+        }
+        stream_path_ = "/" + app_ + "/" + stream_name_;
+        if (!PayloadDecodeOne(payload, payload_len, offset)) {
+            return false;
+        }
+        if (method == "publish") {
+            if (!HandlePublish()) {
+                return false;
+            }
+        } else if (method == "play") {
+            if (!HandlePlay()) {
+                return false;
+            }
+        } else if (method == "deleteStream") {
+            if (!HandleDeleteStream()) {
+                return false;
+            }
+        } else {
+            fprintf(stderr, "Unsupported invoke method: '%s'\n",
+                    method.c_str());
+            return false;
+        }
+    } else {
+        fprintf(stderr, "Invalid invoke method: '%s'\n", method.c_str());
+        return false;
+    }
+    return true;
 }
 
 bool RtmpConnection::HandleNotify(RtmpMessage &rtmp_msg) {
-    return false;
+    size_t offset = 0;
+    const char *payload = reinterpret_cast<const char *>(rtmp_msg.Payload());
+    size_t payload_len = rtmp_msg.PayloadLen();
+    amf_decoder_.Reset();
+
+    // 解析消息名称
+    std::string method, method1;
+    if (!PayloadDecodeString(payload, payload_len, offset, method)) {
+        return false;
+    }
+
+    // 处理不同的方法
+    if (method == "@setDataFrame") {
+        amf_decoder_.Reset();
+        if (!PayloadDecodeString(payload, payload_len, offset, method1)) {
+            return false;
+        }
+        if (method1 == "onMetaData") {
+            if (!PayloadDecodeObjects(payload, payload_len, offset,
+                                      meta_data_)) {
+                return false;
+            }
+
+            // 获取session设置元数据
+
+        } else {
+            fprintf(stderr, "Unsupported notify method: '%s'\n",
+                    method1.c_str());
+            return false;
+        }
+    } else {
+        fprintf(stderr, "Unsupported notify method: '%s'\n", method.c_str());
+        return false;
+    }
+    return true;
 }
 
 bool RtmpConnection::HandleCreateStream() {
@@ -240,13 +332,13 @@ bool RtmpConnection::SendSetChunkSize() {
 }
 
 bool RtmpConnection::SendInvokeMessage(uint32_t csid,
-                                       const std::shared_ptr<char> &payload,
+                                       const std::shared_ptr<char[]> &payload,
                                        uint32_t payload_size) {
     return false;
 }
 
 bool RtmpConnection::SendNotifyMessage(uint32_t csid,
-                                       const std::shared_ptr<char> &payload,
+                                       const std::shared_ptr<char[]> &payload,
                                        uint32_t payload_size) {
     return false;
 }
@@ -256,9 +348,52 @@ bool RtmpConnection::SendMetaData(const AmfObjects &meta_data) {
 }
 
 bool RtmpConnection::SendMediaData(uint8_t type, uint64_t timestamp,
-                                   std::shared_ptr<char> payload,
+                                   std::shared_ptr<char[]> payload,
                                    uint32_t payload_size) {
     return false;
+}
+
+bool RtmpConnection::PayloadDecodeOne(const char *payload, size_t payload_len,
+                                      size_t &offset) {
+    int ret = amf_decoder_.Decode(payload + offset,
+                                  payload_len - offset, 1);
+    if (ret <= 0) {
+        fprintf(stderr, "AMF Decode error\n");
+        return false;
+    } else {
+        offset += ret;
+        return true;
+    }
+}
+
+bool RtmpConnection::PayloadDecodeString(const char *payload,
+                                         size_t payload_len,
+                                         size_t &offset,
+                                         std::string &str) {
+    if (!PayloadDecodeOne(payload, payload_len, offset)) {
+        return false;
+    }
+    str = amf_decoder_.GetString();
+    if (str.empty()) {
+        fprintf(stderr, "AMF Decode string error\n");
+        return false;
+    }
+    return true;
+}
+
+bool RtmpConnection::PayloadDecodeObjects(const char *payload,
+                                          size_t payload_len,
+                                          size_t &offset,
+                                          AmfObjects &objs) {
+    if (!PayloadDecodeOne(payload, payload_len, offset)) {
+        return false;
+    }
+    objs = amf_decoder_.GetObjects();
+    if (objs.empty()) {
+        fprintf(stderr, "AMF Decode objects error\n");
+        return false;
+    }
+    return true;
 }
 
 } // lsy::net::rtmp
