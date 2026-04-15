@@ -110,12 +110,22 @@ struct RtmpMessage : noncopyable {
         return payload_.get();
     }
 
+    std::shared_ptr<uint8_t[]> PayloadSharedPtr() {
+        std::shared_ptr<uint8_t[]> ret(new uint8_t[payload_len_]);
+        std::memcpy(ret.get(), payload_.get(), payload_len_);
+        return ret;
+    }
+
     [[nodiscard]] uint32_t PayloadLen() const {
         return payload_len_;
     }
 
     [[nodiscard]] uint32_t StreamId() const {
         return stream_id_;
+    }
+
+    [[nodiscard]] uint64_t Timestamp() const {
+        return real_timestamp;
     }
 
 private:

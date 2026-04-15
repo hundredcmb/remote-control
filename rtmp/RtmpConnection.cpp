@@ -1,13 +1,27 @@
 #include "RtmpConnection.h"
 
+#include "rtmp/RtmpServer.h"
+#include "rtmp/RtmpMessage.h"
+#include "rtmp/RtmpHandshake.h"
+#include "rtmp/RtmpMessageCodec.h"
+
 namespace lsy::net::rtmp {
 
 uint32_t RtmpMessageCodec::next_stream_id_ = 0;
 
-RtmpConnection::RtmpConnection(TaskSchedulerPtr scheduler, int sockfd)
+RtmpConnection::RtmpConnection(TaskSchedulerPtr scheduler, int sockfd,
+                               RtmpConfig *rtmp)
     : TcpConnection(std::move(scheduler), sockfd),
       msg_codec_(std::make_shared<RtmpMessageCodec>()),
       state_(State::HANDSHAKE) {
+    if (rtmp) {
+        peer_bandwidth_ = rtmp->GetPeerBandwidth();
+        acknowledgement_size_ = rtmp->GetAcknowledgementSize();
+        max_chunk_size_ = rtmp->GetChunkSize();
+        stream_path_ = rtmp->GetStreamPath();
+        stream_name_ = rtmp->GetStreamName();
+        app_ = rtmp->GetApp();
+    }
     TcpConnection::SetReadCallback(
         [this](const TcpConnectionPtr &conn_ptr, BufferReader &buffer) {
             this->OnRead(buffer);
@@ -195,18 +209,34 @@ bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
     uint8_t sound_format = (payload[0] >> 4);
     //uint8_t codec_info = payload[0] & 0x0f;
     uint8_t packet_type = payload[1];
+
+    RtmpServerPtr server = rtmp_server_.lock();
+    if (!server) {
+        fprintf(stderr, "RtmpServer is expired\n");
+        return false;
+    }
+    RtmpSessionPtr session = rtmp_session_.lock();
+    if (!session) {
+        fprintf(stderr, "RtmpSession is expired\n");
+        return false;
+    }
+
     if (sound_format == Flv::SOUND_FORMAT_AAC) {
         if (packet_type == Flv::AAC_PACKET_TYPE_SEQUENCE_HEADER) {
             aac_sequence_header_size_ = payload_len;
             aac_sequence_header_.reset(new uint8_t[payload_len]);
             memcpy(aac_sequence_header_.get(), payload, payload_len);
-
-            // TODO: 获取session设置AAC序列
-
+            // 把 AAC Sequence Header 转发给所有订阅者
+            session->SetAacSequenceHeader(aac_sequence_header_,
+                                          aac_sequence_header_size_);
+            session->SendMediaData(MediaDataType::AAC_SEQUENCE_HEADER,
+                                   rtmp_msg.Timestamp(),
+                                   rtmp_msg.PayloadSharedPtr(), payload_len);
         } else if (packet_type == Flv::AAC_PACKET_TYPE_RAW_DATA) {
-
-            // TODO: 获取session处理音频数据
-
+            // 把 AAC Raw Data 转发给所有订阅者
+            session->SendMediaData(MediaDataType::AAC_AUDIO,
+                                   rtmp_msg.Timestamp(),
+                                   rtmp_msg.PayloadSharedPtr(), payload_len);
         } else {
             fprintf(stderr, "Unsupported AAC packet_type: %d\n", packet_type);
         }
@@ -304,9 +334,18 @@ bool RtmpConnection::HandleNotify(RtmpMessage &rtmp_msg) {
                                       meta_data_)) {
                 return false;
             }
-
-            // TODO: 获取session设置元数据
-
+            // 把元数据转发到所有客户端
+            RtmpServerPtr server = rtmp_server_.lock();
+            if (!server) {
+                fprintf(stderr, "RtmpServer is expired\n");
+                return false;
+            }
+            RtmpSessionPtr session = rtmp_session_.lock();
+            if (!session) {
+                fprintf(stderr, "RtmpSession is expired\n");
+                return false;
+            }
+            session->SendMetaData(meta_data_);
         } else {
             fprintf(stderr, "Unsupported notify method: '%s'\n",
                     method1.c_str());

@@ -104,7 +104,7 @@ public:
      * @return 新创建的TCP连接智能指针
      * @details 从线程池获取调度器，创建TcpConnection实例
      */
-    TcpConnectionPtr CreateConnection(int sockfd) {
+    virtual TcpConnectionPtr CreateConnection(int sockfd) {
         return std::make_shared<TcpConnection>(
             event_loops_->GetNextIoTaskScheduler(), sockfd);
     }

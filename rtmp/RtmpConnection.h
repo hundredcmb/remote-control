@@ -3,11 +3,18 @@
 
 #include "net/TcpConnection.h"
 #include "rtmp/RtmpSink.h"
-#include "rtmp/RtmpMessage.h"
-#include "rtmp/RtmpHandshake.h"
-#include "rtmp/RtmpMessageCodec.h"
 
 namespace lsy::net::rtmp {
+
+class RtmpConfig;
+class RtmpServer;
+class RtmpSession;
+class RtmpMessage;
+class RtmpHandshake;
+class RtmpConnection;
+class RtmpMessageCodec;
+
+using RtmpConnectionPtr = std::shared_ptr<RtmpConnection>;
 
 class RtmpConnection : public TcpConnection, public RtmpSink {
 public:
@@ -20,7 +27,7 @@ public:
         START_PUBLISH,
     };
 
-    RtmpConnection(TaskSchedulerPtr scheduler, int sockfd);
+    RtmpConnection(TaskSchedulerPtr scheduler, int sockfd, RtmpConfig *config);
 
     ~RtmpConnection() override;
 
@@ -103,7 +110,8 @@ private:
     bool PayloadDecodeObjects(const char *payload, size_t payload_len,
                               size_t &offset, AmfObjects &objs);
 
-    static bool IsAvcKeyFrame(std::unique_ptr<uint8_t[]> &payload, uint32_t payload_size);
+    static bool IsAvcKeyFrame(std::unique_ptr<uint8_t[]> &payload,
+                              uint32_t payload_size);
 
     State state_;
     std::shared_ptr<RtmpHandshake> handshake_;
@@ -125,6 +133,9 @@ private:
     std::string app_;
     std::string stream_name_;
     std::string stream_path_;
+
+    std::weak_ptr<RtmpServer> rtmp_server_;
+    std::weak_ptr<RtmpSession> rtmp_session_;
 
     std::shared_ptr<uint8_t[]> avc_sequence_header_;
     std::shared_ptr<uint8_t[]> aac_sequence_header_;

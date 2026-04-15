@@ -41,6 +41,24 @@ public:
     }
 
     /**
+     * @brief 添加定时任务
+     * @param event 定时器触发的回调事件
+     * @param msec 定时延迟时间（毫秒）
+     * @return 定时器唯一ID，用于后续删除定时器
+     */
+    TimerId AddTimer(const TimerEvent &event, uint32_t msec) {
+        return task_schedulers_[0]->AddTimer(event, msec);
+    }
+
+    /**
+     * @brief 移除定时任务
+     * @param timerId 待移除的定时器唯一ID
+     */
+    void RemoveTimer(TimerId timerId) {
+        task_schedulers_[0]->RemoveTimer(timerId);
+    }
+
+    /**
      * @brief 获取用于接收连接的任务调度器
      * @return 主任务调度器智能指针（固定使用索引0）
      */

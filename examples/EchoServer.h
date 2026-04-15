@@ -17,10 +17,15 @@ namespace lsy::net {
  */
 class EchoServer : public TcpServer {
 public:
-    /**
-     * @brief 继承基类构造函数
-     */
-    using TcpServer::TcpServer;
+    explicit EchoServer(const EventLoopThreadPoolPtr &event_loops)
+        : TcpServer(event_loops) {
+        // 创建定时任务, 每秒打印连接数
+        event_loops->AddTimer([this]() -> bool {
+            std::lock_guard<std::mutex> lock(this->mutex_);
+            printf("[EchoServer] connections: %lu\n", this->connections_.size());
+            return true;
+        }, 1000);
+    }
 
 protected:
     /**
@@ -71,14 +76,14 @@ protected:
  */
 int main() {
     // 线程池线程数量
-    const uint32_t kThreadNum = 4;
+    constexpr uint32_t kThreadNum = 4;
 
     // 创建事件循环线程池
-    EventLoopThreadPoolPtr loop_pool = std::make_shared<EventLoopThreadPool>(
+    EventLoopThreadPoolPtr event_loops = std::make_shared<EventLoopThreadPool>(
         kThreadNum);
 
     // 创建Echo服务器
-    EchoServer server(loop_pool);
+    EchoServer server(event_loops);
 
     // 启动服务器，监听0.0.0.0:8888
     if (!server.Start("0.0.0.0", 8888)) {
@@ -89,7 +94,7 @@ int main() {
     printf("[EchoServer] thread pool size: %u\n", kThreadNum);
 
     // 启动事件循环
-    loop_pool->Loop();
+    event_loops->Loop();
     return 0;
 }
 #endif
