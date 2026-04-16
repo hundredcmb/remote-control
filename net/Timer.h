@@ -121,6 +121,9 @@ public:
         if (timers_.empty()) {
             return;
         }
+        if (events_.empty()) {
+            return;
+        }
         int64_t time_point = GetTimeNow();
         while (!timers_.empty() &&
                events_.begin()->first.first <= time_point) {

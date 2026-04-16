@@ -25,7 +25,7 @@ public:
           acceptor_(new Acceptor(event_loops->GetAcceptTaskScheduler())),
           port_(0) {
         acceptor_->SetNewConnectionCallback([this](SocketFd sockfd) -> void {
-            TcpConnectionPtr conn = CreateConnection(sockfd);
+            TcpConnectionPtr conn = this->CreateConnection(sockfd);
             AddConnection(sockfd, conn);
             this->OnConnect(conn);
             conn->SetDisconnectCallback(

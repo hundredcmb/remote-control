@@ -127,10 +127,10 @@ class RtmpServer
       public RtmpConfig,
       public std::enable_shared_from_this<RtmpServer> {
 public:
-    using EventCallback = std::function<void(std::string, std::string)>;
+    using EventCallback = std::function<void(const std::string &,
+                                             const std::string &)>;
 
-    static RtmpServerPtr
-    Create(const EventLoopThreadPoolPtr &event_loops) {
+    static RtmpServerPtr Create(const EventLoopThreadPoolPtr &event_loops) {
         return std::shared_ptr<RtmpServer>(new RtmpServer(event_loops));
     }
 
@@ -147,16 +147,19 @@ private:
     explicit RtmpServer(const EventLoopThreadPoolPtr &event_loops)
         : TcpServer(event_loops) {
         // 添加定时器, 用于清理无客户端的会话
-        event_loops_->AddTimer([this]() -> bool {
+        event_loops->AddTimer([this]() -> bool {
+            int count = 0;
             std::lock_guard<std::mutex> lock(this->session_mutex_);
             for (auto iter = this->rtmp_sessions_.begin();
                  iter != this->rtmp_sessions_.end();) {
                 if (iter->second->GetClients() == 0) {
                     iter = this->rtmp_sessions_.erase(iter);
+                    ++count;
                 } else {
                     ++iter;
                 }
             }
+            printf("[RtmpServer] clean expired rtmp sessions: %d\n", count);
             return true;
         }, 3000);
     }
@@ -188,7 +191,6 @@ private:
     }
 
     bool HasPublisher(const std::string &stream_path) {
-        std::lock_guard<std::mutex> lock(session_mutex_);
         RtmpSessionPtr session = GetSession(stream_path);
         if (!session) {
             return false;
@@ -205,12 +207,20 @@ private:
     }
 
     TcpConnectionPtr CreateConnection(int sockfd) override {
-        return std::make_shared<RtmpConnection>(
-            event_loops_->GetNextIoTaskScheduler(), sockfd, this);
+        return std::make_shared<RtmpConnection>(shared_from_this(),
+                                                TcpServer::event_loops_->GetNextIoTaskScheduler(),
+                                                sockfd);
+    }
+
+    void OnConnect(const TcpConnectionPtr &conn) override {
+        if (!conn) {
+            return;
+        }
+        printf("[RtmpServer] new TCP connection established, fd=%d\n",
+               conn->GetSocket());
     }
 
     std::mutex session_mutex_;
-    EventLoopThreadPoolPtr event_loops_;
     std::unordered_map<std::string, RtmpSessionPtr> rtmp_sessions_;
     std::vector<EventCallback> event_callbacks_;
 };

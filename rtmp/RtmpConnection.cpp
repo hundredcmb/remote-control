@@ -9,19 +9,21 @@ namespace lsy::net::rtmp {
 
 uint32_t RtmpMessageCodec::next_stream_id_ = 0;
 
-RtmpConnection::RtmpConnection(TaskSchedulerPtr scheduler, int sockfd,
-                               RtmpConfig *rtmp)
+RtmpConnection::RtmpConnection(const std::shared_ptr<RtmpServer> &server,
+                               TaskSchedulerPtr scheduler, int sockfd)
     : TcpConnection(std::move(scheduler), sockfd),
       msg_codec_(std::make_shared<RtmpMessageCodec>()),
-      state_(State::HANDSHAKE) {
-    if (rtmp) {
-        peer_bandwidth_ = rtmp->GetPeerBandwidth();
-        acknowledgement_size_ = rtmp->GetAcknowledgementSize();
-        max_chunk_size_ = rtmp->GetChunkSize();
-        stream_path_ = rtmp->GetStreamPath();
-        stream_name_ = rtmp->GetStreamName();
-        app_ = rtmp->GetApp();
+      state_(State::HANDSHAKE),
+      rtmp_server_(server) {
+    if (server) {
+        peer_bandwidth_ = server->GetPeerBandwidth();
+        acknowledgement_size_ = server->GetAcknowledgementSize();
+        max_chunk_size_ = server->GetChunkSize();
+        stream_path_ = server->GetStreamPath();
+        stream_name_ = server->GetStreamName();
+        app_ = server->GetApp();
     }
+    handshake_ = RtmpHandshake::CreateServer();
     TcpConnection::SetReadCallback(
         [this](const TcpConnectionPtr &conn_ptr, BufferReader &buffer) {
             this->OnRead(buffer);
@@ -100,7 +102,7 @@ bool RtmpConnection::HandleChunk(BufferReader &buffer) {
             buffer.RetrieveAll();
             return false;
         } else if (parsed == 0) {
-            return true;
+            break;
         }
         if (msg.Completed()) {
             if (!HandleMessage(msg)) {
@@ -158,42 +160,60 @@ bool RtmpConnection::HandleSetChunkSize(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleSetPeerBandwidth(RtmpMessage &rtmp_msg) {
-    return false;
+    if (rtmp_msg.PayloadLen() != 5) {
+        fprintf(stderr, "SetPeerBandwidth PayloadLen error\n");
+        return false;
+    }
+    return true;
 }
 
 bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
-    return false;
+    if (rtmp_msg.PayloadLen() != 4) {
+        fprintf(stderr, "Acknowledgement PayloadLen error\n");
+        return false;
+    }
+    return true;
 }
 
 bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
+    RtmpServerPtr rtmp_server = rtmp_server_.lock();
+    if (!rtmp_server) {
+        fprintf(stderr, "RtmpServer is expired\n");
+        return false;
+    }
+    RtmpSessionPtr session = rtmp_session_.lock();
+    if (!session) {
+        fprintf(stderr, "RtmpSession is expired\n");
+        return false;
+    }
+
     const uint8_t *payload = rtmp_msg.Payload();
     size_t payload_len = rtmp_msg.PayloadLen();
     uint8_t frame_type = (payload[0] >> 4);
     uint8_t codec_id = payload[0] & 0x0f;
     uint8_t packet_type = payload[1];
     if (codec_id == Flv::CODEC_ID_AVC) {
-        if (frame_type == Flv::FRAME_TYPE_I) {
-            if (packet_type == Flv::AVC_PACKET_TYPE_SEQUENCE_HEADER) {
-                avc_sequence_header_size_ = payload_len;
-                avc_sequence_header_.reset(new uint8_t[payload_len]);
-                memcpy(avc_sequence_header_.get(), payload, payload_len);
-            } else if (packet_type == Flv::AVC_PACKET_TYPE_NALU) {
-
-            } else {
-                fprintf(stderr, "Unsupported video packet_type: %d\n",
-                        packet_type);
-                return false;
-            }
-        } else if (frame_type == Flv::FRAME_TYPE_P) {
-            if (packet_type == Flv::AVC_PACKET_TYPE_NALU) {
-
-            } else {
-                fprintf(stderr, "Unsupported video packet_type: %d\n",
-                        packet_type);
-                return false;
-            }
+        if (frame_type == Flv::FRAME_TYPE_I &&
+            packet_type == Flv::AVC_PACKET_TYPE_SEQUENCE_HEADER) {
+            avc_sequence_header_size_ = payload_len;
+            avc_sequence_header_.reset(new uint8_t[payload_len]);
+            memcpy(avc_sequence_header_.get(), payload, payload_len);
+            // 保存 AVC Sequence Header 到 session 中
+            session->SetAvcSequenceHeader(avc_sequence_header_,
+                                          avc_sequence_header_size_);
+            // 转发 AVC Sequence Header
+            session->SendMediaData(MediaDataType::AVC_SEQUENCE_HEADER,
+                                   rtmp_msg.Timestamp(),
+                                   rtmp_msg.PayloadSharedPtr(),
+                                   payload_len);
+        } else if (packet_type == Flv::AVC_PACKET_TYPE_NALU) {
+            // 转发 AVC 视频帧
+            session->SendMediaData(MediaDataType::AVC_VIDEO,
+                                   rtmp_msg.Timestamp(),
+                                   rtmp_msg.PayloadSharedPtr(),
+                                   payload_len);
         } else {
-            fprintf(stderr, "Unsupported video frame_type: %d\n", frame_type);
+            fprintf(stderr, "Unsupported video packet_type: %d\n", packet_type);
             return false;
         }
     } else {
@@ -204,12 +224,6 @@ bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
-    const uint8_t *payload = rtmp_msg.Payload();
-    size_t payload_len = rtmp_msg.PayloadLen();
-    uint8_t sound_format = (payload[0] >> 4);
-    //uint8_t codec_info = payload[0] & 0x0f;
-    uint8_t packet_type = payload[1];
-
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -220,6 +234,12 @@ bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
         fprintf(stderr, "RtmpSession is expired\n");
         return false;
     }
+
+    const uint8_t *payload = rtmp_msg.Payload();
+    size_t payload_len = rtmp_msg.PayloadLen();
+    uint8_t sound_format = (payload[0] >> 4);
+    //uint8_t codec_info = payload[0] & 0x0f;
+    uint8_t packet_type = payload[1];
 
     if (sound_format == Flv::SOUND_FORMAT_AAC) {
         if (packet_type == Flv::AAC_PACKET_TYPE_SEQUENCE_HEADER) {
@@ -411,8 +431,30 @@ bool RtmpConnection::HandleCreateStream() {
 
 bool RtmpConnection::HandleDeleteStream() {
     printf("================= HandleDeleteStream =================\n");
+    RtmpServerPtr server = rtmp_server_.lock();
+    if (!server) {
+        fprintf(stderr, "RtmpServer is expired\n");
+        return false;
+    }
     if (!stream_path_.empty()) {
-        // TODO: 移除 session
+        RtmpSessionPtr session = rtmp_session_.lock();
+        if (!session) {
+            fprintf(stderr, "RtmpSession is expired\n");
+            return false;
+        }
+        // 在事件循环中移除sink
+        RtmpSinkSharedPtr conn = std::dynamic_pointer_cast<RtmpSink>(
+            shared_from_this());
+        GetTaskScheduler()->AddTimer([conn, session]() {
+            session->RemoveSink(conn);
+            return false;
+        }, 1);
+        // 通知客户端
+        if (is_publishing_) {
+            server->NotifyEvent("publish.stop", stream_path_);
+        } else if (is_playing_) {
+            server->NotifyEvent("play.stop", stream_path_);
+        }
     }
     is_playing_ = false;
     is_publishing_ = false;
@@ -422,6 +464,12 @@ bool RtmpConnection::HandleDeleteStream() {
 
 bool RtmpConnection::HandlePublish() {
     printf("================= HandlePublish =================\n");
+    RtmpServerPtr server = rtmp_server_.lock();
+    if (!server) {
+        fprintf(stderr, "RtmpServer is expired\n");
+        return false;
+    }
+
     AmfObjects objects;
     amf_encoder_.Reset();
     amf_encoder_.EncodeString("onStatus", 8);
@@ -429,15 +477,15 @@ bool RtmpConnection::HandlePublish() {
     amf_encoder_.EncodeObjects(objects);
 
     bool is_error = false;
-    if (0) {
-        printf("HasPublisher\n");
+    if (server->HasPublisher(stream_path_)) {
+        fprintf(stderr, "Stream already HasPublisher\n");
         is_error = true;
         objects["level"] = AmfObject(std::string("error"));
         objects["code"] = AmfObject(std::string("NetStream.Publish.BadName"));
         objects["description"] = AmfObject(
             std::string("Stream already publishing."));
     } else if (state_ == State::START_PUBLISH) {
-        printf("START_PUBLISH\n");
+        fprintf(stderr, "Stream already publishing.\n");
         is_error = true;
         objects["level"] = AmfObject(std::string("error"));
         objects["code"] = AmfObject(
@@ -448,8 +496,10 @@ bool RtmpConnection::HandlePublish() {
         objects["level"] = AmfObject(std::string("status"));
         objects["code"] = AmfObject(std::string("NetStream.Publish.Start"));
         objects["description"] = AmfObject(std::string("Start publishing."));
-
-        // TODO: 添加 session
+        // 添加 session
+        server->AddSession(stream_path_);
+        rtmp_session_ = server->GetSession(stream_path_);
+        server->NotifyEvent("publish.start", stream_path_);
     }
     amf_encoder_.EncodeObjects(objects);
     if (!SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
@@ -462,11 +512,23 @@ bool RtmpConnection::HandlePublish() {
 
     state_ = State::START_PUBLISH;
     is_publishing_ = true;
+
+    RtmpSessionPtr session = rtmp_session_.lock();
+    if (!session) {
+        fprintf(stderr, "RtmpSession is expired\n");
+        return false;
+    }
+    session->AddSink(std::dynamic_pointer_cast<RtmpSink>(shared_from_this()));
     return true;
 }
 
 bool RtmpConnection::HandlePlay() {
     printf("================= HandlePlay =================\n");
+    RtmpServerPtr server = rtmp_server_.lock();
+    if (!server) {
+        fprintf(stderr, "RtmpServer is expired\n");
+        return false;
+    }
 
     // 响应 Reset
     AmfObjects objects;
@@ -511,8 +573,15 @@ bool RtmpConnection::HandlePlay() {
 
     state_ = State::START_PLAY;
 
-    // TODO: session 添加客户端
-
+    // 添加客户端
+    rtmp_session_ = server->GetSession(stream_path_);
+    RtmpSessionPtr session = rtmp_session_.lock();
+    if (!session) {
+        fprintf(stderr, "RtmpSession is expired\n");
+        return false;
+    }
+    session->AddSink(std::dynamic_pointer_cast<RtmpSink>(shared_from_this()));
+    server->NotifyEvent("play.start", stream_path_);
     return true;
 }
 

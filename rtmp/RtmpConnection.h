@@ -6,7 +6,6 @@
 
 namespace lsy::net::rtmp {
 
-class RtmpConfig;
 class RtmpServer;
 class RtmpSession;
 class RtmpMessage;
@@ -27,7 +26,7 @@ public:
         START_PUBLISH,
     };
 
-    RtmpConnection(TaskSchedulerPtr scheduler, int sockfd, RtmpConfig *config);
+    RtmpConnection(const std::shared_ptr<RtmpServer>& server, TaskSchedulerPtr scheduler, int sockfd);
 
     ~RtmpConnection() override;
 
