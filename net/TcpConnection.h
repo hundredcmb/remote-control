@@ -9,7 +9,6 @@
 #include "TaskScheduler.h"
 
 namespace lsy::net {
-
 class TcpConnection;
 
 /**
@@ -170,11 +169,10 @@ protected:
      * @details 从套接字读取数据到读缓冲区，读取成功后触发读回调
      */
     virtual void HandleRead() {
-        {
+        if (is_closed_) {
+            return;
+        } {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (is_closed_) {
-                return;
-            }
             int64_t ret = read_buffer_->ReadFd(GetSocket());
             if (ret <= 0) {
                 Close();
@@ -191,10 +189,10 @@ protected:
      * @details 将写缓冲区的数据发送到套接字，根据发送结果更新写事件监听
      */
     virtual void HandleWrite() {
-        if (!mutex_.try_lock()) {
+        if (is_closed_) {
             return;
         }
-        if (is_closed_) {
+        if (!mutex_.try_lock()) {
             return;
         }
         int64_t ret = write_buffer_->Send(GetSocket());
@@ -275,7 +273,6 @@ private:
     static constexpr int kSendBufSize = 32 * 4096;
     std::mutex mutex_;
 };
-
 } // lsy::net
 
 #endif // NET_TCPCONNECTION_H

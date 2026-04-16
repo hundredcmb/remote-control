@@ -73,6 +73,8 @@ private:
 
     bool HandleSetWindowAckSize(RtmpMessage &rtmp_msg);
 
+    bool HandleUserControl(RtmpMessage &rtmp_msg);
+
     bool HandleConnect();
 
     bool HandleCreateStream();

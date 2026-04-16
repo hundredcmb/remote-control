@@ -144,6 +144,9 @@ bool RtmpConnection::HandleMessage(RtmpMessage &rtmp_msg) {
         case RtmpMessage::Type::WINDOW_ACK_SIZE:
             ret = HandleSetWindowAckSize(rtmp_msg);
             break;
+        case RtmpMessage::Type::USER_CONTROL:
+            ret = HandleUserControl(rtmp_msg);
+            break;
         default:
             fprintf(stderr, "Unsupported message type: %d\n", rtmp_msg.Type());
             ret = false;
@@ -187,9 +190,24 @@ bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
 bool RtmpConnection::HandleSetWindowAckSize(RtmpMessage &rtmp_msg) {
     printf("================= HandleSetWindowAckSize =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
-        fprintf(stderr, "Acknowledgement PayloadLen error\n");
+        fprintf(stderr, "SetWindowAckSize PayloadLen error\n");
         return false;
     }
+    return true;
+}
+
+bool RtmpConnection::HandleUserControl(RtmpMessage &rtmp_msg) {
+    printf("================= HandleUserControl =================\n");
+    if (rtmp_msg.PayloadLen() < 2) {
+        fprintf(stderr, "UserControl PayloadLen error\n");
+        return false;
+    }
+    const uint8_t *payload = rtmp_msg.Payload();
+    if (payload == nullptr) {
+        return false;
+    }
+    uint16_t event_type = (payload[0] << 8) | payload[1];
+    fprintf(stderr, "UserControl event_type: %d\n", event_type);
     return true;
 }
 

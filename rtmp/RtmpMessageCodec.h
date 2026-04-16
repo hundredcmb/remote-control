@@ -165,6 +165,9 @@ public:
 private:
     // 解析一个 Chunk 头, 返回解析的字节数, 返回-1表示解析失败, 返回0表示数据不足
     int ParseChunkHeader(BufferReader &buffer) {
+        if (state_ == PARSE_BODY) {
+            return -1;
+        }
         auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
         if (!buf) {
             return 0;
@@ -233,6 +236,7 @@ private:
                 return 0;
             }
         }
+        fprintf(stderr, "fmt=%d, csid=%d, len=%d, type=%d\n", fmt, csid, rtmp_msg.payload_len_, rtmp_msg.type_id_);
 
         // 更新时间戳
         if (fmt == 0) {
@@ -263,6 +267,9 @@ private:
 
     // 解析一个 Chunk 载荷, 返回解析的字节数, 返回-1表示解析失败, 返回0表示数据不足
     int ParseChunkBody(BufferReader &buffer) {
+        if (state_ == State::PARSE_HEADER) {
+            return -1;
+        }
         auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
         if (!buf) {
             return 0;
