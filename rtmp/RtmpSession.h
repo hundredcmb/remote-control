@@ -98,12 +98,16 @@ public:
             }
             if (sink->IsPlayer()) {
                 if (!sink->IsPlaying()) {
-                    sink->SendMediaData(MediaDataType::AVC_SEQUENCE_HEADER,
-                                        timestamp, avc_sequence_header_,
-                                        avc_sequence_header_size_);
-                    sink->SendMediaData(MediaDataType::AAC_SEQUENCE_HEADER,
-                                        timestamp, aac_sequence_header_,
-                                        aac_sequence_header_size_);
+                    if (avc_sequence_header_size_ > 0) {
+                        sink->SendMediaData(MediaDataType::AVC_SEQUENCE_HEADER,
+                                            timestamp, avc_sequence_header_,
+                                            avc_sequence_header_size_);
+                    }
+                    if (aac_sequence_header_size_ > 0) {
+                        sink->SendMediaData(MediaDataType::AAC_SEQUENCE_HEADER,
+                                            timestamp, aac_sequence_header_,
+                                            aac_sequence_header_size_);
+                    }
                 }
                 sink->SendMediaData(type, timestamp, data, size);
             }

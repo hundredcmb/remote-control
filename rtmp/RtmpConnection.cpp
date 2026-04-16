@@ -7,7 +7,7 @@
 
 namespace lsy::net::rtmp {
 
-uint32_t RtmpMessageCodec::next_stream_id_ = 0;
+uint32_t RtmpMessageCodec::next_stream_id_ = 1;
 
 RtmpConnection::RtmpConnection(const std::shared_ptr<RtmpServer> &server,
                                TaskSchedulerPtr scheduler, int sockfd)
@@ -99,6 +99,7 @@ bool RtmpConnection::HandleChunk(BufferReader &buffer) {
         int parsed = msg_codec_->Parse(buffer, msg);
         if (parsed < 0) {
             fprintf(stderr, "Message Parse error\n");
+            exit(1);
             buffer.RetrieveAll();
             return false;
         } else if (parsed == 0) {
@@ -140,13 +141,19 @@ bool RtmpConnection::HandleMessage(RtmpMessage &rtmp_msg) {
         case RtmpMessage::Type::ACKNOWLEDGEMENT:
             ret = HandleAcknowledgement(rtmp_msg);
             break;
+        case RtmpMessage::Type::WINDOW_ACK_SIZE:
+            ret = HandleSetWindowAckSize(rtmp_msg);
+            break;
         default:
+            fprintf(stderr, "Unsupported message type: %d\n", rtmp_msg.Type());
+            ret = false;
             break;
     }
     return ret;
 }
 
 bool RtmpConnection::HandleSetChunkSize(RtmpMessage &rtmp_msg) {
+    printf("================= HandleSetChunkSize =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
         return false;
     }
@@ -160,6 +167,7 @@ bool RtmpConnection::HandleSetChunkSize(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleSetPeerBandwidth(RtmpMessage &rtmp_msg) {
+    printf("================= HandleSetPeerBandwidth =================\n");
     if (rtmp_msg.PayloadLen() != 5) {
         fprintf(stderr, "SetPeerBandwidth PayloadLen error\n");
         return false;
@@ -168,6 +176,16 @@ bool RtmpConnection::HandleSetPeerBandwidth(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
+    printf("================= HandleAcknowledgement =================\n");
+    if (rtmp_msg.PayloadLen() != 4) {
+        fprintf(stderr, "Acknowledgement PayloadLen error\n");
+        return false;
+    }
+    return true;
+}
+
+bool RtmpConnection::HandleSetWindowAckSize(RtmpMessage &rtmp_msg) {
+    printf("================= HandleSetWindowAckSize =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
         fprintf(stderr, "Acknowledgement PayloadLen error\n");
         return false;
@@ -176,6 +194,7 @@ bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
+    //printf("================= HandleVideo =================\n");
     RtmpServerPtr rtmp_server = rtmp_server_.lock();
     if (!rtmp_server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -224,6 +243,7 @@ bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
+    //printf("================= HandleAudio =================\n");
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -238,7 +258,6 @@ bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
     const uint8_t *payload = rtmp_msg.Payload();
     size_t payload_len = rtmp_msg.PayloadLen();
     uint8_t sound_format = (payload[0] >> 4);
-    //uint8_t codec_info = payload[0] & 0x0f;
     uint8_t packet_type = payload[1];
 
     if (sound_format == Flv::SOUND_FORMAT_AAC) {
@@ -289,21 +308,37 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
             if (!HandleConnect()) {
                 return false;
             }
+        } else if (method == "releaseStream") {
+            if (!HandleReleaseStream()) {
+                return false;
+            }
+        } else if (method == "FCPublish") {
+            if (!HandleFCPublish()) {
+                return false;
+            }
         } else if (method == "createStream") {
             if (!HandleCreateStream()) {
                 return false;
             }
+        } else if (method == "getStreamLength") {
+            if (!HandleGetStreamLength()) {
+                return false;
+            }
         } else {
-            fprintf(stderr, "Unsupported invoke method: '%s'\n",
+            fprintf(stderr,
+                    "Unsupported invoke method before publish/play: '%s'\n",
                     method.c_str());
             return false;
         }
     } else if (rtmp_msg.StreamId() == stream_id_) {
-        if (!PayloadDecodeString(payload, payload_len, offset, stream_name_)) {
+        // 这里的 3 解析的分别是: TransactionID(Number), object(null), StreamName(String)
+        if (!PayloadDecode(payload, payload_len, offset, 3)) {
             return false;
         }
+        stream_name_ = amf_decoder_.GetString();
         stream_path_ = "/" + app_ + "/" + stream_name_;
-        if (!PayloadDecode(payload, payload_len, offset, 3)) {
+        // 这里解析剩余的参数
+        if (!PayloadDecode(payload, payload_len, offset, -1)) {
             return false;
         }
         if (method == "publish") {
@@ -319,7 +354,8 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
                 return false;
             }
         } else {
-            fprintf(stderr, "Unsupported invoke method: '%s'\n",
+            fprintf(stderr,
+                    "Unsupported invoke method after publish/play: '%s'\n",
                     method.c_str());
             return false;
         }
@@ -392,9 +428,9 @@ bool RtmpConnection::HandleConnect() {
         return false;
     }
 
-    SendSetChunkSize();
     SendAcknowledgement();
     SendSetPeerBandwidth();
+    SendSetChunkSize();
 
     AmfObjects objects;
     amf_encoder_.Reset();
@@ -410,7 +446,6 @@ bool RtmpConnection::HandleConnect() {
     objects["description"] = AmfObject(std::string("Connection succeeded"));
     objects["objectEncoding"] = AmfObject(0.0);
     amf_encoder_.EncodeObjects(objects);
-
     return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
                              amf_encoder_.Size());
 }
@@ -423,8 +458,47 @@ bool RtmpConnection::HandleCreateStream() {
     amf_encoder_.Reset();
     amf_encoder_.EncodeString("_result", 7);
     amf_encoder_.EncodeNumber(amf_decoder_.GetNumber());
-    amf_encoder_.EncodeObjects(objects); // 空对象
+    amf_encoder_.EncodeNull();
     amf_encoder_.EncodeNumber(stream_id);
+    return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
+                             amf_encoder_.Size());
+}
+
+bool RtmpConnection::HandleReleaseStream() {
+    printf("================= HandleReleaseStream =================\n");
+    std::string path = amf_decoder_.GetString();
+    AmfObjects objects;
+    amf_encoder_.Reset();
+    amf_encoder_.EncodeString("_result", 7);
+    amf_encoder_.EncodeNumber(amf_decoder_.GetNumber());
+    amf_encoder_.EncodeNull();
+    amf_encoder_.EncodeString(path.c_str(), path.size());
+    return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
+                             amf_encoder_.Size());
+}
+
+bool RtmpConnection::HandleFCPublish() {
+    printf("================= HandleFCPublish =================\n");
+    std::string path = amf_decoder_.GetString();
+    AmfObjects objects;
+    amf_encoder_.Reset();
+    amf_encoder_.EncodeString("_result", 7);
+    amf_encoder_.EncodeNumber(amf_decoder_.GetNumber());
+    amf_encoder_.EncodeNull();
+    amf_encoder_.EncodeString(path.c_str(), path.size());
+    return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
+                             amf_encoder_.Size());
+}
+
+bool RtmpConnection::HandleGetStreamLength() {
+    printf("================= HandleGetStreamLength =================\n");
+    std::string path = amf_decoder_.GetString();
+    AmfObjects objects;
+    amf_encoder_.Reset();
+    amf_encoder_.EncodeString("_result", 7);
+    amf_encoder_.EncodeNumber(amf_decoder_.GetNumber());
+    amf_encoder_.EncodeNull();
+    amf_encoder_.EncodeNumber(0.0);
     return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
                              amf_encoder_.Size());
 }
@@ -577,7 +651,7 @@ bool RtmpConnection::HandlePlay() {
     rtmp_session_ = server->GetSession(stream_path_);
     RtmpSessionPtr session = rtmp_session_.lock();
     if (!session) {
-        fprintf(stderr, "RtmpSession is expired\n");
+        fprintf(stderr, "Stream not found: %s\n", stream_path_.c_str());
         return false;
     }
     session->AddSink(std::dynamic_pointer_cast<RtmpSink>(shared_from_this()));
@@ -585,7 +659,8 @@ bool RtmpConnection::HandlePlay() {
     return true;
 }
 
-bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg) {
+bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg,
+                                    uint8_t first_fmt) {
     uint32_t payload_len = rtmp_msg.PayloadLen();
     uint32_t chunk_size = msg_codec_->OutChunkSize();
     if (payload_len == 0 || chunk_size == 0) {
@@ -606,7 +681,7 @@ bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg) {
     std::shared_ptr<char[]> buffer(new char[total_size]);
     int size = msg_codec_->CreateChunks(csid, rtmp_msg,
                                         reinterpret_cast<uint8_t *>(buffer.get()),
-                                        total_size);
+                                        total_size, first_fmt);
     if (size <= 0) {
         fprintf(stderr, "CreateChunks failed\n");
         return false;
@@ -652,7 +727,7 @@ bool RtmpConnection::SendInvokeMessage(uint32_t csid,
         return false;
     }
     RtmpMessage msg(RtmpMessage::Type::INVOKE, std::move(payload),
-                    payload_size, stream_id_);
+                    payload_size, stream_id_, 0);
     return SendRtmpChunks(csid, msg);
 }
 
@@ -664,7 +739,7 @@ bool RtmpConnection::SendNotifyMessage(uint32_t csid,
         return false;
     }
     RtmpMessage msg(RtmpMessage::Type::NOTIFY, std::move(payload),
-                    payload_size, stream_id_);
+                    payload_size, stream_id_, 0);
     return SendRtmpChunks(csid, msg);
 }
 
@@ -712,17 +787,22 @@ bool RtmpConnection::SendMediaData(uint8_t type, uint64_t timestamp,
         }
     }
 
+    fprintf(stderr, "SendMediaData: type=%d, timestamp=%ld, size=%d\n", type,
+            timestamp, payload_size);
+
     uint8_t msg_type = 0;
     if (type == MediaDataType::AAC_AUDIO ||
         type == MediaDataType::AAC_SEQUENCE_HEADER) {
         msg_type = RtmpMessage::Type::AUDIO;
-        RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_);
-        return SendRtmpChunks(RtmpMessage::CSID_AUDIO, msg);
+        RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_,
+                        timestamp);
+        return SendRtmpChunks(RtmpMessage::CSID_AUDIO, msg, 1);
     } else if (type == MediaDataType::AVC_VIDEO ||
                type == MediaDataType::AVC_SEQUENCE_HEADER) {
         msg_type = RtmpMessage::Type::VIDEO;
-        RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_);
-        return SendRtmpChunks(RtmpMessage::CSID_VIDEO, msg);
+        RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_,
+                        timestamp);
+        return SendRtmpChunks(RtmpMessage::CSID_VIDEO, msg, 1);
     } else {
         fprintf(stderr, "Invalid media type\n");
         return false;
@@ -800,6 +880,7 @@ bool RtmpConnection::IsAvcKeyFrame(std::unique_ptr<uint8_t[]> &payload,
     }
     uint8_t frame_type = payload.get()[0] >> 4;
     uint8_t codec_id = payload.get()[0] & 0x0f;
+    //printf("frame_type: %d, codec_id: %d\n", frame_type, codec_id);
     return (frame_type == Flv::FRAME_TYPE_I && codec_id == Flv::CODEC_ID_AVC);
 }
 

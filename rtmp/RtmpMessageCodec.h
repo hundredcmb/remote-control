@@ -70,7 +70,8 @@ public:
     }
 
     int CreateChunks(ChunkStreamID csid, const RtmpMessage &rtmp_msg,
-                     uint8_t *buf, size_t buf_size) const {
+                     uint8_t *buf, size_t buf_size,
+                     uint8_t first_fmt = 0) const {
         uint8_t *payload = rtmp_msg.payload_.get();
         if (!payload) {
             return -1;
@@ -86,7 +87,7 @@ public:
         buf_offset += basic_header_len;
 
         // 写入首个 Chunk 的 MessageHeader
-        int message_header_len = CreateMessageHeader(0, rtmp_msg,
+        int message_header_len = CreateMessageHeader(first_fmt, rtmp_msg,
                                                      buf + buf_offset,
                                                      buf_size - buf_offset);
         if (message_header_len <= 0) {
@@ -245,10 +246,10 @@ private:
             }
         } else if (fmt == 1 || fmt == 2) {
             if (need_extend_ts) {
-                rtmp_msg.extend_timestamp = extend_ts;
+                rtmp_msg.extend_timestamp += extend_ts;
                 rtmp_msg.real_timestamp += extend_ts;
             } else {
-                rtmp_msg.timestamp = ts_value;
+                rtmp_msg.timestamp += ts_value;
                 rtmp_msg.real_timestamp += ts_value;
             }
         }

@@ -76,7 +76,7 @@ struct RtmpMessage : noncopyable {
     }
 
     RtmpMessage(uint8_t type_id, std::unique_ptr<uint8_t[]> &&payload,
-                uint32_t payload_len, uint32_t stream_id)
+                uint32_t payload_len, uint32_t stream_id, uint64_t timestamp)
         : type_id_(type_id),
           payload_(std::move(payload)),
           payload_len_(payload_len),

@@ -236,13 +236,8 @@ public:
         if (s2 == nullptr || !c1_data_) {
             return false;
         }
-
-        // 1. 判断S2的时间戳是否与C1缓存中的时间戳相同
-        if (std::memcmp(s2 + 4, c1_data_.get(), 4) != 0) {
-            return false;
-        }
-        // 2. 判断S2的随机数是否与C1缓存中的随机数相同
-        if (std::memcmp(s2 + 8, c1_data_.get() + 8, kC1C2S1S2Size - 8) != 0) {
+        // 判断 S2 是否与 C1 相等
+        if (std::memcmp(s2, c1_data_.get(), kC1C2S1S2Size) != 0) {
             return false;
         }
         return true;
@@ -252,13 +247,8 @@ public:
         if (c2 == nullptr || !s1_data_) {
             return false;
         }
-
-        // 1. 判断C2的时间戳是否与S1缓存中的时间戳相同
-        if (std::memcmp(c2 + 4, s1_data_.get(), 4) != 0) {
-            return false;
-        }
-        // 2. 判断C2的随机数是否与S1缓存中的随机数相同
-        if (std::memcmp(c2 + 8, s1_data_.get() + 8, kC1C2S1S2Size - 8) != 0) {
+        // 判断 C2 是否与 S1 相等
+        if (std::memcmp(c2, s1_data_.get(), kC1C2S1S2Size) != 0) {
             return false;
         }
         return true;

@@ -159,7 +159,7 @@ private:
                     ++iter;
                 }
             }
-            printf("[RtmpServer] clean expired rtmp sessions: %d\n", count);
+            //printf("[RtmpServer] clean expired rtmp sessions: %d\n", count);
             return true;
         }, 3000);
     }
@@ -213,11 +213,10 @@ private:
     }
 
     void OnConnect(const TcpConnectionPtr &conn) override {
-        if (!conn) {
-            return;
+        if (conn) {
+            printf("[RtmpServer] new TCP connection established, fd=%d\n",
+                   conn->GetSocket());
         }
-        printf("[RtmpServer] new TCP connection established, fd=%d\n",
-               conn->GetSocket());
     }
 
     std::mutex session_mutex_;

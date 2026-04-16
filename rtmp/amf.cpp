@@ -258,8 +258,7 @@ bool AmfEncoder::SafeWriteBytes(const uint8_t *data, size_t len) {
     return ByteIO::WriteBytes(buf, m_size_, m_index_, data, len);
 }
 
-void AmfEncoder::EncodeString(const char *str, int len, bool isObject) {
-    if (len < 0) { len = 0; }
+void AmfEncoder::EncodeString(const char *str, size_t len, bool isObject) {
     if (len == 0 && !str) { str = ""; }
 
     auto str_len = static_cast<size_t>(len);
@@ -293,6 +292,10 @@ void AmfEncoder::EncodeNumber(double value) {
 void AmfEncoder::EncodeBoolean(int value) {
     SafeWriteUInt8(AMF0_BOOLEAN);
     SafeWriteUInt8(value ? 0x01 : 0x00);
+}
+
+void AmfEncoder::EncodeNull() {
+    SafeWriteUInt8(AMF0_NULL);
 }
 
 void AmfEncoder::EncodeObjects(AmfObjects &objs) {

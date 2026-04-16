@@ -7,10 +7,15 @@
 namespace lsy::net::rtmp {
 
 class RtmpServer;
+
 class RtmpSession;
+
 class RtmpMessage;
+
 class RtmpHandshake;
+
 class RtmpConnection;
+
 class RtmpMessageCodec;
 
 using RtmpConnectionPtr = std::shared_ptr<RtmpConnection>;
@@ -26,7 +31,8 @@ public:
         START_PUBLISH,
     };
 
-    RtmpConnection(const std::shared_ptr<RtmpServer>& server, TaskSchedulerPtr scheduler, int sockfd);
+    RtmpConnection(const std::shared_ptr<RtmpServer> &server,
+                   TaskSchedulerPtr scheduler, int sockfd);
 
     ~RtmpConnection() override;
 
@@ -65,9 +71,17 @@ private:
 
     bool HandleAcknowledgement(RtmpMessage &rtmp_msg);
 
+    bool HandleSetWindowAckSize(RtmpMessage &rtmp_msg);
+
     bool HandleConnect();
 
     bool HandleCreateStream();
+
+    bool HandleReleaseStream();
+
+    bool HandleFCPublish();
+
+    bool HandleGetStreamLength();
 
     bool HandlePublish();
 
@@ -75,7 +89,8 @@ private:
 
     bool HandleDeleteStream();
 
-    bool SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg);
+    bool SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg,
+                        uint8_t first_fmt = 0);
 
     bool SendSetPeerBandwidth();
 

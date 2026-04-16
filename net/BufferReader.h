@@ -174,7 +174,7 @@ private:
     size_t reader_index_ = 0;         // 读索引（下一个待读取的位置）
     size_t writer_index_ = 0;         // 写索引（下一个待写入的位置）
     static constexpr uint32_t kMaxBytesPerRead = 4096;    // 单次最大读取字节数
-    static constexpr uint32_t kMaxBufferSize = 4096 * 4096; // 缓冲区最大容量限制
+    static constexpr uint32_t kMaxBufferSize = 4096 * 4096 * 64; // 缓冲区最大容量限制
 };
 
 } // lsy::net

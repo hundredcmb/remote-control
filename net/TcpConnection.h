@@ -111,7 +111,9 @@ public:
      */
     void Send(const std::shared_ptr<char[]> &data, uint32_t size) {
         if (!is_closed_) {
+            std::unique_lock<std::mutex> lock(mutex_);
             if (write_buffer_->Append(data, size)) {
+                lock.unlock();
                 HandleWrite();
             }
         }
@@ -124,7 +126,9 @@ public:
      */
     void Send(const char *data, size_t size) {
         if (!is_closed_) {
+            std::unique_lock<std::mutex> lock(mutex_);
             if (write_buffer_->Append(data, size)) {
+                lock.unlock();
                 HandleWrite();
             }
         }
@@ -134,6 +138,7 @@ public:
      * @brief 主动断开TCP连接
      */
     void Disconnect() {
+        std::lock_guard<std::mutex> lock(mutex_);
         Close();
     }
 
@@ -165,13 +170,16 @@ protected:
      * @details 从套接字读取数据到读缓冲区，读取成功后触发读回调
      */
     virtual void HandleRead() {
-        if (is_closed_) {
-            return;
-        }
-        int64_t ret = read_buffer_->ReadFd(GetSocket());
-        if (ret <= 0) {
-            Close();
-            return;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (is_closed_) {
+                return;
+            }
+            int64_t ret = read_buffer_->ReadFd(GetSocket());
+            if (ret <= 0) {
+                Close();
+                return;
+            }
         }
         if (read_cb_) {
             read_cb_(shared_from_this(), *read_buffer_);
@@ -183,13 +191,15 @@ protected:
      * @details 将写缓冲区的数据发送到套接字，根据发送结果更新写事件监听
      */
     virtual void HandleWrite() {
+        if (!mutex_.try_lock()) {
+            return;
+        }
         if (is_closed_) {
             return;
         }
         int64_t ret = write_buffer_->Send(GetSocket());
         if (ret < 0) {
             Close();
-            return;
         } else if (ret == 0 && !write_buffer_->Empty()) {
             // 数据没发完, 监听写事件
             channel_->EnableWriting();
@@ -199,12 +209,14 @@ protected:
             channel_->DisableWriting();
             task_scheduler_->UpdateChannel(channel_);
         }
+        mutex_.unlock();
     }
 
     /**
      * @brief 处理连接关闭事件
      */
     virtual void HandleClose() {
+        std::lock_guard<std::mutex> lock(mutex_);
         Close();
     }
 
@@ -261,6 +273,7 @@ private:
     ReadCallback read_cb_;
     /// TCP连接默认发送缓冲区大小（32*4096字节）
     static constexpr int kSendBufSize = 32 * 4096;
+    std::mutex mutex_;
 };
 
 } // lsy::net

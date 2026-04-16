@@ -143,11 +143,13 @@ public:
         m_index_ = 0;
     }
 
-    void EncodeString(const char *str, int len, bool isObject = true);
+    void EncodeString(const char *str, size_t len, bool isObject = true);
 
     void EncodeNumber(double value);
 
     void EncodeBoolean(int value);
+
+    void EncodeNull();
 
     void EncodeObjects(AmfObjects &objs);
 
