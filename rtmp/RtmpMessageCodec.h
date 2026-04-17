@@ -46,7 +46,7 @@ public:
             offset += ret;
         } else {
             ret = ParseChunkBody(in_buffer);
-            if (ret <= 0) {
+            if (ret < 0) {
                 return ret;
             }
             offset += ret;
@@ -57,12 +57,16 @@ public:
                 return -1;
             }
             RtmpMessage &rtmp_msg = it->second;
+            if (ret == 0 && rtmp_msg.payload_len_ != 0) {
+                return 0;
+            }
             if (rtmp_msg.payload_offset_ == rtmp_msg.payload_len_) {
                 rtmp_msg.is_completed_ = true;
                 out_rtmp_msg = std::move(rtmp_msg);
+                fprintf(stderr, "End of message: csid=%d, len=%d, type=%d\n", out_rtmp_msg.csid_, out_rtmp_msg.payload_len_, out_rtmp_msg.type_id_);
+                rtmp_messages_.erase(it);
                 current_csid_ = 0;
                 state_ = State::PARSE_HEADER;
-                rtmp_messages_.erase(it);
             }
         }
 
@@ -256,6 +260,10 @@ private:
                 rtmp_msg.timestamp += ts_value;
                 rtmp_msg.real_timestamp += ts_value;
             }
+        } else if (fmt == 3) {
+            if (rtmp_msg.payload_len_ == 0) {
+                return -1;
+            }
         }
 
         state_ = State::PARSE_BODY;
@@ -304,8 +312,9 @@ private:
             rtmp_msg.payload_offset_ += chunk_size;
         }
         state_ = State::PARSE_HEADER;
-
-        buffer.Retrieve(offset);
+        if (offset > 0) {
+            buffer.Retrieve(offset);
+        }
         return static_cast<int>(offset);
     }
 

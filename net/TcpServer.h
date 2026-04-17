@@ -105,8 +105,10 @@ public:
      * @details 从线程池获取调度器，创建TcpConnection实例
      */
     virtual TcpConnectionPtr CreateConnection(int sockfd) {
-        return std::make_shared<TcpConnection>(
+        TcpConnectionPtr conn = std::make_shared<TcpConnection>(
             event_loops_->GetNextIoTaskScheduler(), sockfd);
+        conn->EnableCallbacks();
+        return conn;
     }
 
     /**

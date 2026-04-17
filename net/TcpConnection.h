@@ -54,16 +54,30 @@ public:
           write_buffer_(new BufferWriter()),
           channel_(new Channel(sockfd)),
           is_closed_(false) {
-        // 设置套接字属性
         SocketUtil::SetNonBlock(sockfd);
         SocketUtil::SetSendBufSize(sockfd, kSendBufSize);
         SocketUtil::SetKeepAlive(sockfd);
+    }
 
-        // 初始化 channel 并新增读事件监听
-        channel_->SetReadCallback([this]() -> void { HandleRead(); });
-        channel_->SetWriteCallback([this]() -> void { HandleWrite(); });
-        channel_->SetErrorCallback([this]() -> void { HandleError(); });
-        channel_->SetCloseCallback([this]() -> void { HandleClose(); });
+    /**
+     * @brief 启用TCP连接事件监听
+     * @details 创建Channel对象，并设置读、写、错误、关闭事件回调，
+     *          并开启读事件监听，将Channel对象添加到任务调度器中
+     */
+    void EnableCallbacks() {
+        TcpConnectionPtr self = shared_from_this();
+        channel_->SetReadCallback([self]() {
+            self->HandleRead();
+        });
+        channel_->SetWriteCallback([self]() {
+            self->HandleWrite();
+        });
+        channel_->SetErrorCallback([self]() {
+            self->HandleError();
+        });
+        channel_->SetCloseCallback([self]() {
+            self->HandleClose();
+        });
         channel_->EnableReading();
         task_scheduler_->UpdateChannel(channel_);
     }
@@ -171,7 +185,8 @@ protected:
     virtual void HandleRead() {
         if (is_closed_) {
             return;
-        } {
+        }
+        {
             std::lock_guard<std::mutex> lock(mutex_);
             int64_t ret = read_buffer_->ReadFd(GetSocket());
             if (ret <= 0) {

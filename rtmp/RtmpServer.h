@@ -207,9 +207,12 @@ private:
     }
 
     TcpConnectionPtr CreateConnection(int sockfd) override {
-        return std::make_shared<RtmpConnection>(shared_from_this(),
-                                                TcpServer::event_loops_->GetNextIoTaskScheduler(),
-                                                sockfd);
+        TcpConnectionPtr conn = std::make_shared<RtmpConnection>(
+            shared_from_this(),
+            TcpServer::event_loops_->GetNextIoTaskScheduler(),
+            sockfd);
+        conn->EnableCallbacks();
+        return conn;
     }
 
     void OnConnect(const TcpConnectionPtr &conn) override {

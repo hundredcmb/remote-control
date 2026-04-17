@@ -99,7 +99,7 @@ struct RtmpMessage : noncopyable {
     }
 
     [[nodiscard]] bool Completed() const {
-        return is_completed_;
+        return is_completed_ && payload_len_ > 0;
     }
 
     [[nodiscard]] uint32_t Type() const {
