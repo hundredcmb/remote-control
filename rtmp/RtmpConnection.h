@@ -91,8 +91,7 @@ private:
 
     bool HandleDeleteStream();
 
-    bool SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg,
-                        uint8_t first_fmt = 0);
+    bool SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg);
 
     bool SendSetPeerBandwidth();
 

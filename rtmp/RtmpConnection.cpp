@@ -677,8 +677,7 @@ bool RtmpConnection::HandlePlay() {
     return true;
 }
 
-bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg,
-                                    uint8_t first_fmt) {
+bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg) {
     uint32_t payload_len = rtmp_msg.PayloadLen();
     uint32_t chunk_size = msg_codec_->OutChunkSize();
     if (payload_len == 0 || chunk_size == 0) {
@@ -699,7 +698,7 @@ bool RtmpConnection::SendRtmpChunks(uint32_t csid, RtmpMessage &rtmp_msg,
     std::shared_ptr<char[]> buffer(new char[total_size]);
     int size = msg_codec_->CreateChunks(csid, rtmp_msg,
                                         reinterpret_cast<uint8_t *>(buffer.get()),
-                                        total_size, first_fmt);
+                                        total_size);
     if (size <= 0) {
         fprintf(stderr, "CreateChunks failed\n");
         return false;
@@ -805,8 +804,7 @@ bool RtmpConnection::SendMediaData(uint8_t type, uint64_t timestamp,
         }
     }
 
-    fprintf(stderr, "SendMediaData: type=%d, timestamp=%ld, size=%d\n", type,
-            timestamp, payload_size);
+    // fprintf(stderr, "SendMediaData: type=%d, timestamp=%ld, size=%d\n", type, timestamp, payload_size);
 
     uint8_t msg_type = 0;
     if (type == MediaDataType::AAC_AUDIO ||
@@ -814,13 +812,13 @@ bool RtmpConnection::SendMediaData(uint8_t type, uint64_t timestamp,
         msg_type = RtmpMessage::Type::AUDIO;
         RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_,
                         timestamp);
-        return SendRtmpChunks(RtmpMessage::CSID_AUDIO, msg, 1);
+        return SendRtmpChunks(RtmpMessage::CSID_AUDIO, msg);
     } else if (type == MediaDataType::AVC_VIDEO ||
                type == MediaDataType::AVC_SEQUENCE_HEADER) {
         msg_type = RtmpMessage::Type::VIDEO;
         RtmpMessage msg(msg_type, std::move(buffer), payload_size, stream_id_,
                         timestamp);
-        return SendRtmpChunks(RtmpMessage::CSID_VIDEO, msg, 1);
+        return SendRtmpChunks(RtmpMessage::CSID_VIDEO, msg);
     } else {
         fprintf(stderr, "Invalid media type\n");
         return false;

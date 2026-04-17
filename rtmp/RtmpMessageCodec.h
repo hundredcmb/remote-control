@@ -63,8 +63,17 @@ public:
             if (rtmp_msg.payload_offset_ == rtmp_msg.payload_len_) {
                 rtmp_msg.is_completed_ = true;
                 out_rtmp_msg = std::move(rtmp_msg);
-                fprintf(stderr, "End of message: csid=%d, len=%d, type=%d\n", out_rtmp_msg.csid_, out_rtmp_msg.payload_len_, out_rtmp_msg.type_id_);
-                rtmp_messages_.erase(it);
+                //fprintf(stderr, "End of message: csid=%d, len=%d, type=%d\n", out_rtmp_msg.csid_, out_rtmp_msg.payload_len_, out_rtmp_msg.type_id_);
+
+                // fmt3 上下文继承; fmt1 时间戳和流ID继承
+                rtmp_msg = RtmpMessage();
+                rtmp_msg.payload_len_ = out_rtmp_msg.payload_len_;
+                rtmp_msg.type_id_ = out_rtmp_msg.type_id_;
+                rtmp_msg.timestamp = out_rtmp_msg.timestamp;
+                rtmp_msg.extend_timestamp = out_rtmp_msg.extend_timestamp;
+                rtmp_msg.real_timestamp = out_rtmp_msg.real_timestamp;
+                rtmp_msg.stream_id_ = out_rtmp_msg.stream_id_;
+
                 current_csid_ = 0;
                 state_ = State::PARSE_HEADER;
             }
@@ -74,8 +83,7 @@ public:
     }
 
     int CreateChunks(ChunkStreamID csid, const RtmpMessage &rtmp_msg,
-                     uint8_t *buf, size_t buf_size,
-                     uint8_t first_fmt = 0) const {
+                     uint8_t *buf, size_t buf_size) const {
         uint8_t *payload = rtmp_msg.payload_.get();
         if (!payload) {
             return -1;
@@ -91,7 +99,7 @@ public:
         buf_offset += basic_header_len;
 
         // 写入首个 Chunk 的 MessageHeader
-        int message_header_len = CreateMessageHeader(first_fmt, rtmp_msg,
+        int message_header_len = CreateMessageHeader(0, rtmp_msg,
                                                      buf + buf_offset,
                                                      buf_size - buf_offset);
         if (message_header_len <= 0) {
@@ -240,7 +248,7 @@ private:
                 return 0;
             }
         }
-        fprintf(stderr, "fmt=%d, csid=%d, len=%d, type=%d\n", fmt, csid, rtmp_msg.payload_len_, rtmp_msg.type_id_);
+        //fprintf(stderr, "fmt=%d, csid=%d, len=%d, type=%d\n", fmt, csid, rtmp_msg.payload_len_, rtmp_msg.type_id_);
 
         // 更新时间戳
         if (fmt == 0) {
