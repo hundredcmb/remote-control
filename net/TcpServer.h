@@ -30,10 +30,15 @@ public:
             this->OnConnect(conn);
             conn->SetDisconnectCallback(
                 [this](const TcpConnectionPtr &tcp_conn) -> void {
-                    this->RemoveConnection(tcp_conn->GetSocket());
+                    this->OnDisconnect(tcp_conn);
+                    this->event_loops_->AddTimer([this, tcp_conn]() {
+                        this->RemoveConnection(tcp_conn->GetSocket());
+                        return false;
+                    }, 0);
                 }
             );
         });
+
     }
 
     /**
@@ -48,22 +53,20 @@ public:
      * @brief 启动TCP服务
      * @param ip 监听IP地址
      * @param port 监听端口
-     * @return 成功返回true，失败返回false
      * @details 启动接收器监听，初始化服务状态
      */
-    bool Start(const std::string &ip, uint16_t port) {
+    void Start(const std::string &ip, uint16_t port) {
         Stop();
 
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!is_started_) {
+        event_loops_->AddTimer([this, ip, port]() {
             if (acceptor_->Listen(ip, port) < 0) {
                 return false;
             }
             port_ = port;
             ip_ = ip;
             is_started_ = true;
-        }
-        return true;
+            return false;
+        }, 0);
     }
 
     /**
@@ -71,15 +74,18 @@ public:
      * @details 断开所有连接，关闭接收器，重置服务状态
      */
     void Stop() {
-        std::lock_guard<std::mutex> lock(mutex_);
         if (!is_started_) {
             return;
         }
-        for (auto &pair: connections_) {
-            pair.second->Disconnect();
-        }
-        acceptor_->Close();
-        is_started_ = false;
+
+        event_loops_->AddTimer([this]() {
+            for (auto &pair: connections_) {
+                pair.second->Disconnect();
+            }
+            acceptor_->Close();
+            is_started_ = false;
+            return false;
+        }, 0);
     }
 
     /**
@@ -112,23 +118,11 @@ public:
     }
 
     /**
-     * @brief 根据套接字获取连接
-     * @param sockfd 套接字文件描述符
-     * @return 对应TCP连接智能指针，不存在返回nullptr
-     */
-    TcpConnectionPtr GetConnection(SocketFd sockfd) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = connections_.find(sockfd);
-        return (it != connections_.end()) ? it->second : nullptr;
-    }
-
-    /**
      * @brief 添加新连接到管理容器
      * @param sockfd 套接字文件描述符
      * @param conn TCP连接智能指针
      */
     void AddConnection(int sockfd, const TcpConnectionPtr &conn) {
-        std::lock_guard<std::mutex> lock(mutex_);
         connections_.emplace(sockfd, conn);
     }
 
@@ -137,7 +131,6 @@ public:
      * @param sockfd 套接字文件描述符
      */
     void RemoveConnection(int sockfd) {
-        std::lock_guard<std::mutex> lock(mutex_);
         connections_.erase(sockfd);
     }
 
@@ -152,6 +145,14 @@ protected:
         // conn->SetCloseCallback(...);
     };
 
+    /**
+     * @brief 连接断开回调（可被子类重写）
+     * @param conn 断开的TCP连接智能指针
+     * @details 派生类可重写此函数处理断开连接后的业务逻辑
+     */
+    virtual void OnDisconnect(const TcpConnectionPtr &conn) {
+    };
+
     /// 事件循环线程池智能指针
     EventLoopThreadPoolPtr event_loops_;
     /// 监听IP地址
@@ -161,11 +162,9 @@ protected:
     /// TCP连接接收器，负责接收客户端连接
     std::unique_ptr<Acceptor> acceptor_;
     /// 服务启动状态标记
-    bool is_started_;
+    std::atomic_bool is_started_;
     /// 套接字 -> TCP连接映射表，管理所有活跃连接
-    std::unordered_map<SocketFd, TcpConnectionPtr> connections_;
-    /// 互斥锁，保护连接容器与服务状态的线程安全
-    std::mutex mutex_;
+    std::map<SocketFd, TcpConnectionPtr> connections_;
 };
 
 } // lsy::net

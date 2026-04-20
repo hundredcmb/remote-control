@@ -19,12 +19,6 @@ class EchoServer : public TcpServer {
 public:
     explicit EchoServer(const EventLoopThreadPoolPtr &event_loops)
         : TcpServer(event_loops) {
-        // 创建定时任务, 每秒打印连接数
-        event_loops->AddTimer([this]() -> bool {
-            std::lock_guard<std::mutex> lock(this->mutex_);
-            printf("[EchoServer] connections: %lu\n", this->connections_.size());
-            return true;
-        }, 1000);
     }
 
 protected:

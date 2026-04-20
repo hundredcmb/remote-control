@@ -137,6 +137,13 @@ public:
     }
 
     /**
+     * @brief 关闭所有事件监听
+     */
+    void DisableAll() {
+        events_ = EVENT_NONE;
+    }
+
+    /**
      * @brief 判断是否未监听任何事件
      * @return 无事件返回true，否则返回false
      */
@@ -167,26 +174,34 @@ public:
      */
     void HandleEvent(Events events) {
         if (events & (EVENT_PRI | EVENT_IN)) {
-            read_callback_();
+            if (read_callback_) {
+                read_callback_();
+            }
         }
         if (events & EVENT_OUT) {
-            write_callback_();
+            if (write_callback_) {
+                write_callback_();
+            }
         }
         if (events & EVENT_HUP) {
-            close_callback_();
+            if (close_callback_) {
+                close_callback_();
+            }
             return;
         }
         if (events & (EVENT_ERR)) {
-            error_callback_();
+            if (error_callback_) {
+                error_callback_();
+            }
         }
     }
 
 private:
-    EventCallback read_callback_ = []() -> void {};
-    EventCallback write_callback_ = []() -> void {};
-    EventCallback close_callback_ = []() -> void {};
-    EventCallback error_callback_ = []() -> void {};
-    FileDescriptor fd_ = 0;
+    EventCallback read_callback_ = nullptr;
+    EventCallback write_callback_ = nullptr;
+    EventCallback close_callback_ = nullptr;
+    EventCallback error_callback_ = nullptr;
+    FileDescriptor fd_ = -1;
     Events events_ = 0;
 };
 

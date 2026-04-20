@@ -87,6 +87,7 @@ public:
      * @return 分配的唯一定时器ID，用于后续删除操作
      */
     TimerId AddTimer(const TimerEvent &event, uint32_t msec) {
+        std::lock_guard<std::mutex> lock(mutex_);
         int64_t time_point = GetTimeNow();
         TimerId timer_id = last_timer_id_++;
         auto timer = std::make_shared<Timer>(event, msec);
@@ -105,6 +106,7 @@ public:
      * @param timer_id 要删除的定时器唯一ID
      */
     void RemoveTimer(TimerId timer_id) {
+        std::lock_guard<std::mutex> lock(mutex_);
         auto it = timers_.find(timer_id);
         if (it != timers_.end()) {
             events_.erase(
@@ -118,6 +120,7 @@ public:
      * @details 遍历并执行已到期事件，重复执行的定时器自动重新入队
      */
     void HandleTimerEvent() {
+        std::unique_lock<std::mutex> lock(mutex_);
         if (timers_.empty()) {
             return;
         }
@@ -128,11 +131,15 @@ public:
         while (!timers_.empty() &&
                events_.begin()->first.first <= time_point) {
             TimerId timer_id = events_.begin()->first.second;
-            bool is_repeated = events_.begin()->second->event_callback_();
+            TimerPtr timer = std::move(events_.begin()->second);
+            events_.erase(events_.begin());
+
+            lock.unlock();
+            bool is_repeated = timer->event_callback_();
+            lock.lock();
+
             if (is_repeated) {
-                TimerPtr timer = std::move(events_.begin()->second);
                 timer->SetNextTimeout(time_point);
-                events_.erase(events_.begin());
                 events_.emplace(
                     std::piecewise_construct,
                     std::forward_as_tuple(
@@ -142,7 +149,6 @@ public:
                     std::forward_as_tuple(timer)
                 );
             } else {
-                events_.erase(events_.begin());
                 timers_.erase(timer_id);
             }
         }
@@ -165,6 +171,7 @@ private:
     std::map<std::pair<int64_t, TimerId>, TimerPtr> events_;
     // 定时器自增ID
     TimerId last_timer_id_ = 0;
+    std::mutex mutex_;
 };
 
 } // lsy::net

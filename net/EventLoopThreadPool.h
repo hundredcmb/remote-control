@@ -106,7 +106,6 @@ public:
         task_schedulers_[0]->Start();
     }
 
-private:
     /**
      * @brief 退出线程池，释放所有资源
      * @details 停止所有任务调度器，等待线程退出并清理资源
@@ -127,7 +126,7 @@ private:
         threads_.clear();
         is_started_ = false;
     }
-
+private:
     /// 线程池总线程数量
     uint32_t num_threads_;
     /// 轮询调度器索引，实现负载均衡

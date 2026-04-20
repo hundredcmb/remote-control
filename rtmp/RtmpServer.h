@@ -1,8 +1,6 @@
 #ifndef RTMP_RTMPSERVER_H
 #define RTMP_RTMPSERVER_H
 
-#include <utility>
-
 #include "net/TcpServer.h"
 #include "rtmp/RtmpSession.h"
 
@@ -148,18 +146,18 @@ private:
         : TcpServer(event_loops) {
         // 添加定时器, 用于清理无客户端的会话
         event_loops->AddTimer([this]() -> bool {
-            int count = 0;
             std::lock_guard<std::mutex> lock(this->session_mutex_);
             for (auto iter = this->rtmp_sessions_.begin();
                  iter != this->rtmp_sessions_.end();) {
                 if (iter->second->GetClients() == 0) {
+                    fprintf(stderr,
+                            "[RtmpServer] clean expired rtmp session: '%s'\n",
+                            iter->first.c_str());
                     iter = this->rtmp_sessions_.erase(iter);
-                    ++count;
                 } else {
                     ++iter;
                 }
             }
-            //printf("[RtmpServer] clean expired rtmp sessions: %d\n", count);
             return true;
         }, 3000);
     }
@@ -217,7 +215,15 @@ private:
 
     void OnConnect(const TcpConnectionPtr &conn) override {
         if (conn) {
-            //printf("[RtmpServer] new TCP connection established, fd=%d\n", conn->GetSocket());
+            fprintf(stderr, "[RtmpServer] tcp OnConnect: fd=%d\n",
+                    conn->GetSocket());
+        }
+    }
+
+    void OnDisconnect(const TcpConnectionPtr &conn) override {
+        if (conn) {
+            fprintf(stderr, "[RtmpServer] tcp OnDisconnect: fd=%d\n",
+                    conn->GetSocket());
         }
     }
 

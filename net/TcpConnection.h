@@ -83,6 +83,18 @@ public:
     }
 
     /**
+     * @brief 禁用TCP连接事件监听
+     * @details 禁用读、写、错误、关闭事件监听，并清空回调函数对象
+     */
+    void DisableCallbacks() {
+        channel_->DisableAll();
+        channel_->SetReadCallback(nullptr);
+        channel_->SetWriteCallback(nullptr);
+        channel_->SetErrorCallback(nullptr);
+        channel_->SetCloseCallback(nullptr);
+    }
+
+    /**
      * @brief 析构函数
      * @details 关闭套接字文件描述符，释放TCP连接占用的系统资源
      */
@@ -268,12 +280,19 @@ private:
         }
         is_closed_ = true;
         task_scheduler_->RemoveChannel(channel_);
+        TcpConnectionPtr self = shared_from_this();
         if (close_cb_) {
-            close_cb_(shared_from_this());
+            close_cb_(self);
         }
         if (disconnect_cb_) {
-            disconnect_cb_(shared_from_this());
+            disconnect_cb_(self);
         }
+
+        // 在事件循环中清理回调函数中的self引用计数(安全释放self内存)
+        task_scheduler_->AddTimer([self]() {
+            self->DisableCallbacks();
+            return false;
+        }, 0);
     }
 
     /// 事件通道智能指针，管理套接字的读写/错误/关闭事件

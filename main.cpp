@@ -15,18 +15,16 @@ int main() {
     server->SetChunkSize(60000);
     server->SetEventCallback(
         [](const std::string &type, const std::string &path) {
-            printf("[RtmpServer] %s: '%s'\n", type.c_str(), path.c_str());
+            fprintf(stderr, "[RtmpServer] %s: '%s'\n", type.c_str(),
+                    path.c_str());
         }
     );
 
-    // 启动服务器, 监听0.0.0.0:1935
+    // 服务器监听 0.0.0.0:1935
     constexpr uint16_t kPort = 1935;
-    if (!server->Start("0.0.0.0", kPort)) {
-        fprintf(stderr, "[RtmpServer] failed to start server!\n");
-        return -1;
-    }
-    printf("[RtmpServer] server started, listening on port %d\n", kPort);
-    printf("[RtmpServer] thread pool size: %u\n", kThreadNum);
+    server->Start("0.0.0.0", kPort);
+    fprintf(stderr, "[RtmpServer] listening on port %d, "
+                    "EventLoopThreadPool size is %u\n", kPort, kThreadNum);
 
     // 启动事件循环
     event_loops->Loop();
