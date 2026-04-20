@@ -65,7 +65,7 @@ public:
                 out_rtmp_msg = std::move(rtmp_msg);
                 //fprintf(stderr, "End of message: csid=%d, len=%d, type=%d\n", out_rtmp_msg.csid_, out_rtmp_msg.payload_len_, out_rtmp_msg.type_id_);
 
-                // fmt3 上下文继承; fmt1 时间戳和流ID继承
+                // fmt3 上下文全部继承; fmt1 时间戳和流ID继承
                 rtmp_msg = RtmpMessage();
                 rtmp_msg.payload_len_ = out_rtmp_msg.payload_len_;
                 rtmp_msg.type_id_ = out_rtmp_msg.type_id_;

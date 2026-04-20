@@ -217,8 +217,7 @@ private:
 
     void OnConnect(const TcpConnectionPtr &conn) override {
         if (conn) {
-            printf("[RtmpServer] new TCP connection established, fd=%d\n",
-                   conn->GetSocket());
+            //printf("[RtmpServer] new TCP connection established, fd=%d\n", conn->GetSocket());
         }
     }
 

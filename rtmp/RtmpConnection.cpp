@@ -7,6 +7,7 @@
 
 namespace lsy::net::rtmp {
 
+// 这里是从 1 开始, 因为 0 表示在 publish/play 前流未创建的状态
 uint32_t RtmpMessageCodec::next_stream_id_ = 1;
 
 RtmpConnection::RtmpConnection(const std::shared_ptr<RtmpServer> &server,
@@ -156,7 +157,7 @@ bool RtmpConnection::HandleMessage(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleSetChunkSize(RtmpMessage &rtmp_msg) {
-    printf("================= HandleSetChunkSize =================\n");
+    fprintf(stderr, "================= HandleSetChunkSize =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
         return false;
     }
@@ -170,7 +171,8 @@ bool RtmpConnection::HandleSetChunkSize(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleSetPeerBandwidth(RtmpMessage &rtmp_msg) {
-    printf("================= HandleSetPeerBandwidth =================\n");
+    fprintf(stderr,
+            "================= HandleSetPeerBandwidth =================\n");
     if (rtmp_msg.PayloadLen() != 5) {
         fprintf(stderr, "SetPeerBandwidth PayloadLen error\n");
         return false;
@@ -179,7 +181,8 @@ bool RtmpConnection::HandleSetPeerBandwidth(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
-    printf("================= HandleAcknowledgement =================\n");
+    fprintf(stderr,
+            "================= HandleAcknowledgement =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
         fprintf(stderr, "Acknowledgement PayloadLen error\n");
         return false;
@@ -188,7 +191,8 @@ bool RtmpConnection::HandleAcknowledgement(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleSetWindowAckSize(RtmpMessage &rtmp_msg) {
-    printf("================= HandleSetWindowAckSize =================\n");
+    fprintf(stderr,
+            "================= HandleSetWindowAckSize =================\n");
     if (rtmp_msg.PayloadLen() != 4) {
         fprintf(stderr, "SetWindowAckSize PayloadLen error\n");
         return false;
@@ -197,7 +201,7 @@ bool RtmpConnection::HandleSetWindowAckSize(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleUserControl(RtmpMessage &rtmp_msg) {
-    printf("================= HandleUserControl =================\n");
+    fprintf(stderr, "================= HandleUserControl =================\n");
     if (rtmp_msg.PayloadLen() < 2) {
         fprintf(stderr, "UserControl PayloadLen error\n");
         return false;
@@ -212,7 +216,7 @@ bool RtmpConnection::HandleUserControl(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
-    //printf("================= HandleVideo =================\n");
+    //fprintf(stderr, "================= HandleVideo =================\n");
     RtmpServerPtr rtmp_server = rtmp_server_.lock();
     if (!rtmp_server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -243,8 +247,9 @@ bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
                                    rtmp_msg.Timestamp(),
                                    rtmp_msg.PayloadSharedPtr(),
                                    payload_len);
-        } else if (packet_type == Flv::AVC_PACKET_TYPE_NALU) {
-            // 转发 AVC 视频帧
+        } else if (packet_type == Flv::AVC_PACKET_TYPE_NALU ||
+                   packet_type == Flv::AVC_PACKET_TYPE_SEQUENCE_END) {
+            // 转发 AVC视频帧/AVC帧结束
             session->SendMediaData(MediaDataType::AVC_VIDEO,
                                    rtmp_msg.Timestamp(),
                                    rtmp_msg.PayloadSharedPtr(),
@@ -261,7 +266,7 @@ bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
-    //printf("================= HandleAudio =================\n");
+    //fprintf(stderr, "================= HandleAudio =================\n");
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -334,6 +339,10 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
             if (!HandleFCPublish()) {
                 return false;
             }
+        } else if (method == "FCUnpublish") {
+            if (!HandleFCUnpublish()) {
+                return false;
+            }
         } else if (method == "createStream") {
             if (!HandleCreateStream()) {
                 return false;
@@ -342,10 +351,12 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
             if (!HandleGetStreamLength()) {
                 return false;
             }
+        } else if (method == "deleteStream") {
+            // do nothing
         } else {
             fprintf(stderr,
-                    "Unsupported invoke method before publish/play: '%s'\n",
-                    method.c_str());
+                    "Unsupported invoke method: '%s', stream_id=%d\n",
+                    method.c_str(), rtmp_msg.StreamId());
             return false;
         }
     } else if (rtmp_msg.StreamId() == stream_id_) {
@@ -373,8 +384,8 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
             }
         } else {
             fprintf(stderr,
-                    "Unsupported invoke method after publish/play: '%s'\n",
-                    method.c_str());
+                    "Unsupported invoke method: '%s', stream_id=%d\n",
+                    method.c_str(), rtmp_msg.StreamId());
             return false;
         }
     } else {
@@ -385,7 +396,7 @@ bool RtmpConnection::HandleInvoke(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleNotify(RtmpMessage &rtmp_msg) {
-    printf("================= HandleNotify =================\n");
+    fprintf(stderr, "================= HandleNotify =================\n");
     size_t offset = 0;
     const char *payload = reinterpret_cast<const char *>(rtmp_msg.Payload());
     size_t payload_len = rtmp_msg.PayloadLen();
@@ -433,7 +444,8 @@ bool RtmpConnection::HandleNotify(RtmpMessage &rtmp_msg) {
 }
 
 bool RtmpConnection::HandleConnect() {
-    printf("================= HandleConnect =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-connect =================\n");
     if (!amf_decoder_.HasObject("app")) {
         fprintf(stderr, "app not found\n");
         return false;
@@ -469,7 +481,8 @@ bool RtmpConnection::HandleConnect() {
 }
 
 bool RtmpConnection::HandleCreateStream() {
-    printf("================= HandleCreateStream =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-createStream =================\n");
     uint32_t stream_id = msg_codec_->StreamId();
     AmfObjects objects;
     stream_id_ = stream_id;
@@ -483,7 +496,8 @@ bool RtmpConnection::HandleCreateStream() {
 }
 
 bool RtmpConnection::HandleReleaseStream() {
-    printf("================= HandleReleaseStream =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-releaseStream =================\n");
     std::string path = amf_decoder_.GetString();
     AmfObjects objects;
     amf_encoder_.Reset();
@@ -496,7 +510,22 @@ bool RtmpConnection::HandleReleaseStream() {
 }
 
 bool RtmpConnection::HandleFCPublish() {
-    printf("================= HandleFCPublish =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-FCPublish =================\n");
+    std::string path = amf_decoder_.GetString();
+    AmfObjects objects;
+    amf_encoder_.Reset();
+    amf_encoder_.EncodeString("_result", 7);
+    amf_encoder_.EncodeNumber(amf_decoder_.GetNumber());
+    amf_encoder_.EncodeNull();
+    amf_encoder_.EncodeString(path.c_str(), path.size());
+    return SendInvokeMessage(RtmpMessage::CSID_INVOKE, amf_encoder_.Data(),
+                             amf_encoder_.Size());
+}
+
+bool RtmpConnection::HandleFCUnpublish() {
+    fprintf(stderr,
+            "================= HandleInvoke-FCUnpublish =================\n");
     std::string path = amf_decoder_.GetString();
     AmfObjects objects;
     amf_encoder_.Reset();
@@ -509,7 +538,8 @@ bool RtmpConnection::HandleFCPublish() {
 }
 
 bool RtmpConnection::HandleGetStreamLength() {
-    printf("================= HandleGetStreamLength =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-getStreamLength =================\n");
     std::string path = amf_decoder_.GetString();
     AmfObjects objects;
     amf_encoder_.Reset();
@@ -522,7 +552,8 @@ bool RtmpConnection::HandleGetStreamLength() {
 }
 
 bool RtmpConnection::HandleDeleteStream() {
-    printf("================= HandleDeleteStream =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-deleteStream =================\n");
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -555,7 +586,8 @@ bool RtmpConnection::HandleDeleteStream() {
 }
 
 bool RtmpConnection::HandlePublish() {
-    printf("================= HandlePublish =================\n");
+    fprintf(stderr,
+            "================= HandleInvoke-publish =================\n");
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");
@@ -615,7 +647,7 @@ bool RtmpConnection::HandlePublish() {
 }
 
 bool RtmpConnection::HandlePlay() {
-    printf("================= HandlePlay =================\n");
+    fprintf(stderr, "================= HandleInvoke-play =================\n");
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {
         fprintf(stderr, "RtmpServer is expired\n");

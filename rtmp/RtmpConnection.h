@@ -83,6 +83,8 @@ private:
 
     bool HandleFCPublish();
 
+    bool HandleFCUnpublish();
+
     bool HandleGetStreamLength();
 
     bool HandlePublish();
