@@ -15,7 +15,7 @@ int main() {
     server->SetChunkSize(60000);
     server->SetEventCallback(
         [](const std::string &type, const std::string &path) {
-            printf("[RtmpServer] %s: %s\n", type.c_str(), path.c_str());
+            printf("[RtmpServer] %s: '%s'\n", type.c_str(), path.c_str());
         }
     );
 
