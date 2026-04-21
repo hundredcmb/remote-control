@@ -13,8 +13,8 @@ namespace lsy::net::rtmp {
 uint32_t RtmpMessageCodec::next_stream_id_ = 1;
 
 RtmpConnection::RtmpConnection(const std::shared_ptr<RtmpServer> &server,
-                               TaskSchedulerPtr scheduler, int sockfd)
-    : TcpConnection(std::move(scheduler), sockfd),
+                               const TaskSchedulerPtr &scheduler, int sockfd)
+    : TcpConnection(scheduler, sockfd),
       msg_codec_(std::make_shared<RtmpMessageCodec>()),
       state_(State::HANDSHAKE),
       rtmp_server_(server) {
@@ -101,9 +101,7 @@ bool RtmpConnection::HandleChunk(BufferReader &buffer) {
         RtmpMessage msg;
         int parsed = msg_codec_->Parse(buffer, msg);
         if (parsed < 0) {
-            fprintf(stderr, "Message Parse error\n");
-            exit(1);
-            buffer.RetrieveAll();
+            fprintf(stderr, "Message parse error\n");
             return false;
         } else if (parsed == 0) {
             break;
@@ -121,7 +119,7 @@ bool RtmpConnection::HandleMessage(RtmpMessage &rtmp_msg) {
     if (!rtmp_msg.Completed()) {
         return false;
     }
-    bool ret = true;
+    bool ret;
     switch (rtmp_msg.Type()) {
         case RtmpMessage::Type::VIDEO:
             ret = HandleVideo(rtmp_msg);
@@ -226,7 +224,7 @@ bool RtmpConnection::HandleUserControl(RtmpMessage &rtmp_msg) {
 
 bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
 #if DEBUG_RTMP_CONNECT
-    fprintf(stderr, "================= HandleVideo\n");
+    //fprintf(stderr, "================= HandleVideo\n");
 #endif
     RtmpServerPtr rtmp_server = rtmp_server_.lock();
     if (!rtmp_server) {
@@ -278,7 +276,7 @@ bool RtmpConnection::HandleVideo(RtmpMessage &rtmp_msg) {
 
 bool RtmpConnection::HandleAudio(RtmpMessage &rtmp_msg) {
 #if DEBUG_RTMP_CONNECT
-    fprintf(stderr, "================= HandleAudio\n");
+    //fprintf(stderr, "================= HandleAudio\n");
 #endif
     RtmpServerPtr server = rtmp_server_.lock();
     if (!server) {

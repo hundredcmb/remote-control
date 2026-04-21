@@ -32,7 +32,7 @@ public:
     };
 
     RtmpConnection(const std::shared_ptr<RtmpServer> &server,
-                   TaskSchedulerPtr scheduler, int sockfd);
+                   const TaskSchedulerPtr &scheduler, int sockfd);
 
     ~RtmpConnection() override;
 

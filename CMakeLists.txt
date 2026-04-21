@@ -16,6 +16,7 @@ add_executable(${TARGET_NAME}
         examples/EchoServer.h
         base/noncopyable.h
         base/ByteIO.h
+        base/Timestamp.h
         net/TcpSocket.h
         net/TcpSocket.cpp
         net/Channel.h
@@ -38,6 +39,12 @@ add_executable(${TARGET_NAME}
         rtmp/RtmpConnection.h
         rtmp/RtmpConnection.cpp
         rtmp/RtmpServer.h
+        http-flv/HttpRequest.h
+        http-flv/HttpResponse.h
+        http-flv/HttpContext.h
+        http-flv/HttpConnection.h
+        http-flv/HttpConnection.cpp
+        http-flv/HttpFlvServer.h
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

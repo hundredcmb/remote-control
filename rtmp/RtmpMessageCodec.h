@@ -180,7 +180,7 @@ private:
         if (state_ == PARSE_BODY) {
             return -1;
         }
-        auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
+        auto *buf = reinterpret_cast<const uint8_t *>(buffer.Peek());
         if (!buf) {
             return 0;
         }
@@ -286,7 +286,7 @@ private:
         if (state_ == State::PARSE_HEADER) {
             return -1;
         }
-        auto *buf = reinterpret_cast<uint8_t *>(buffer.Peek());
+        auto *buf = reinterpret_cast<const uint8_t *>(buffer.Peek());
         if (!buf) {
             return 0;
         }

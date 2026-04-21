@@ -3,6 +3,8 @@
 
 #include <unistd.h>
 
+#include <utility>
+
 #include "TcpSocket.h"
 #include "BufferReader.h"
 #include "BufferWriter.h"
@@ -268,6 +270,7 @@ protected:
     std::unique_ptr<BufferWriter> write_buffer_;
     /// 连接关闭状态原子标记，保证多线程安全
     std::atomic_bool is_closed_;
+    std::mutex mutex_;
 
 private:
     /**
@@ -305,7 +308,6 @@ private:
     ReadCallback read_cb_;
     /// TCP连接默认发送缓冲区大小（32*4096字节）
     static constexpr int kSendBufSize = 32 * 4096;
-    std::mutex mutex_;
 };
 } // lsy::net
 

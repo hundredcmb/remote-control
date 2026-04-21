@@ -54,6 +54,25 @@ public:
     /**
      * @brief 添加普通字符指针类型的数据包到发送缓冲区(会多一次数据拷贝)
      * @param data 原始数据指针
+     * @return 添加成功返回true，缓冲区满/参数非法返回false
+     */
+    bool Append(const char *data) {
+        if (!data) {
+            return false;
+        }
+        if (buffer_.size() >= max_queue_length_) {
+            return false;
+        }
+        size_t size = std::strlen(data);
+        std::shared_ptr<char[]> data_ptr(new char[size]);
+        std::memcpy(data_ptr.get(), data, size);
+        buffer_.emplace(data_ptr, size, 0);
+        return true;
+    }
+
+    /**
+     * @brief 添加普通字符指针类型的数据包到发送缓冲区(会多一次数据拷贝)
+     * @param data 原始数据指针
      * @param size 数据包总长度
      * @param index 数据发送起始偏移量，默认为0
      * @return 添加成功返回true，缓冲区满/参数非法返回false

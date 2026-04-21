@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <cassert>
+#include <cstring>
 
 namespace lsy::net {
 
@@ -49,7 +50,7 @@ public:
      * @brief 获取可读数据的起始指针（非const）
      * @return 指向可读数据首地址的指针
      */
-    char *Peek() {
+    const char *Peek() {
         return Begin() + reader_index_;
     }
 
@@ -68,6 +69,23 @@ public:
     void RetrieveAll() {
         writer_index_ = 0;
         reader_index_ = 0;
+    }
+
+    /**
+     * @brief 直接消费数据直到指定内存地址（纯地址定位，**不做字符串匹配**）
+     * @param end 缓冲区内部目标结束地址指针
+     * @details 从当前Peek读位置，直接移动读索引到end地址
+     *          自动校验地址合法性，非法地址不执行任何操作
+     */
+    void RetrieveUntil(const char *end) {
+        assert(end != nullptr);
+        const char *cur_read = Peek();
+        const char *cur_write = BeginWrite();
+        if (end < cur_read || end > cur_write) {
+            return;
+        }
+        size_t consume_len = end - cur_read;
+        Retrieve(consume_len);
     }
 
     /**
@@ -137,6 +155,24 @@ public:
         return buffer_.size();
     }
 
+    /**
+     * @brief 在可读数据中查找 \r\n 分隔符
+     * @return 找到返回 CRLF 的起始内存地址，未找到返回 nullptr
+     * @details 纯内存查找，不修改缓冲区，const 安全
+     */
+    [[nodiscard]] const char *FindCRLF() const {
+        const size_t readable = ReadableBytes();
+        if (readable < 2) {
+            return nullptr;
+        }
+        return static_cast<const char *>(memmem(
+            Peek(),
+            readable,
+            kCRLF,
+            sizeof(kCRLF) - 1
+        ));
+    }
+
 private:
     /**
      * @brief 获取缓冲区起始指针（非const）
@@ -175,6 +211,7 @@ private:
     size_t writer_index_ = 0;         // 写索引（下一个待写入的位置）
     static constexpr uint32_t kMaxBytesPerRead = 4096;    // 单次最大读取字节数
     static constexpr uint32_t kMaxBufferSize = 4096 * 4096 * 64; // 缓冲区最大容量限制
+    static constexpr char kCRLF[] = "\r\n";
 };
 
 } // lsy::net
