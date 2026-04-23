@@ -26,6 +26,9 @@ struct Flv {
     static constexpr uint32_t AVC_PACKET_TYPE_SEQUENCE_HEADER = 0;
     static constexpr uint32_t AVC_PACKET_TYPE_NALU = 1;
     static constexpr uint32_t AVC_PACKET_TYPE_SEQUENCE_END = 2;
+    static constexpr uint32_t TAG_TYPE_AUDIO = 8;
+    static constexpr uint32_t TAG_TYPE_VIDEO = 9;
+    static constexpr uint32_t TAG_TYPE_SCRIPT = 18;
 
     Flv() = delete;
 };

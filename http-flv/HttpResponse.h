@@ -16,6 +16,7 @@ public:
         k301MovedPermanently = 301,
         k400BadRequest = 400,
         k404NotFound = 404,
+        k405MethodNotAllowed = 405,
     };
 
     explicit HttpResponse(bool close)

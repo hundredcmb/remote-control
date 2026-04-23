@@ -4,7 +4,15 @@
 #include "net/TcpServer.h"
 #include "rtmp/RtmpSession.h"
 
-namespace lsy::net::rtmp {
+namespace lsy::net {
+
+namespace http {
+
+class HttpFlvConnection;
+
+}
+
+namespace rtmp {
 
 class RtmpConfig {
 public:
@@ -142,6 +150,8 @@ public:
 private:
     friend class RtmpConnection;
 
+    friend class ::lsy::net::http::HttpFlvConnection;
+
     explicit RtmpServer(const EventLoopThreadPoolPtr &event_loops)
         : TcpServer(event_loops) {
         // 添加定时器, 用于清理无客户端的会话
@@ -232,6 +242,8 @@ private:
     std::vector<EventCallback> event_callbacks_;
 };
 
-} // lsy::net::rtmp
+} // rtmp
+
+} // lsy::net
 
 #endif // RTMP_RTMPSERVER_H

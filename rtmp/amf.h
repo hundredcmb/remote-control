@@ -153,7 +153,7 @@ public:
 
     void EncodeObjects(AmfObjects &objs);
 
-    void EncodeECMA(AmfObjects &objs);
+    void EncodeECMA(const AmfObjects &objs);
 
 private:
     bool SafeWriteUInt8(uint8_t value);

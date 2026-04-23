@@ -42,8 +42,8 @@ add_executable(${TARGET_NAME}
         http-flv/HttpRequest.h
         http-flv/HttpResponse.h
         http-flv/HttpContext.h
-        http-flv/HttpConnection.h
-        http-flv/HttpConnection.cpp
+        http-flv/HttpFlvConnection.h
+        http-flv/HttpFlvConnection.cpp
         http-flv/HttpFlvServer.h
 )
 

@@ -588,15 +588,14 @@ bool RtmpConnection::HandleDeleteStream() {
         // 在事件循环中移除sink
         RtmpSinkSharedPtr conn = std::dynamic_pointer_cast<RtmpSink>(
             shared_from_this());
-        GetTaskScheduler()->AddTimer([conn, session]() {
+        TcpConnection::GetTaskScheduler()->AddTimer([conn, session]() {
             session->RemoveSink(conn);
             return false;
         }, 1);
-        // 通知客户端
         if (is_publishing_) {
             server->NotifyEvent("publish.stop", stream_path_);
         } else if (is_playing_) {
-            server->NotifyEvent("play.stop", stream_path_);
+            server->NotifyEvent("play.stop(rtmp)", stream_path_);
         }
     }
     is_playing_ = false;
@@ -728,7 +727,7 @@ bool RtmpConnection::HandlePlay() {
         return false;
     }
     session->AddSink(std::dynamic_pointer_cast<RtmpSink>(shared_from_this()));
-    server->NotifyEvent("play.start", stream_path_);
+    server->NotifyEvent("play.start(rtmp)", stream_path_);
     return true;
 }
 
@@ -828,7 +827,7 @@ bool RtmpConnection::SendMetaData(const AmfObjects &meta_data) {
     }
     amf_encoder_.Reset();
     amf_encoder_.EncodeString("onMetaData", 10);
-    amf_encoder_.EncodeECMA(meta_data_);
+    amf_encoder_.EncodeECMA(meta_data);
     if (!SendNotifyMessage(RtmpMessage::CSID_DATA, amf_encoder_.Data(),
                            amf_encoder_.Size())) {
         return false;

@@ -328,7 +328,7 @@ void AmfEncoder::EncodeObjects(AmfObjects &objs) {
     SafeWriteUInt8(AMF0_OBJECT_END);
 }
 
-void AmfEncoder::EncodeECMA(AmfObjects &objs) {
+void AmfEncoder::EncodeECMA(const AmfObjects &objs) {
     // ECMA数组：类型(1) + 4字节数组长度(默认0)
     SafeWriteUInt8(AMF0_ECMA_ARRAY);
     SafeWriteUInt32BE(0);
