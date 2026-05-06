@@ -6,6 +6,7 @@
 #include "rtmp/RtmpMessageCodec.h"
 
 #define DEBUG_RTMP_CONNECT 0
+#define DEBUG_RTMP_MEDIA_SEND 0
 
 namespace lsy::net::rtmp {
 
@@ -866,7 +867,10 @@ bool RtmpConnection::SendMediaData(uint8_t type, uint64_t timestamp,
         }
     }
 
-    // fprintf(stderr, "SendMediaData: type=%d, timestamp=%ld, size=%d\n", type, timestamp, payload_size);
+#if DEBUG_RTMP_MEDIA_SEND
+    fprintf(stderr, "SendMediaData: type=%d, timestamp=%ld, size=%d\n", type,
+            timestamp, payload_size);
+#endif
 
     uint8_t msg_type = 0;
     if (type == MediaDataType::AAC_AUDIO ||
@@ -958,7 +962,6 @@ bool RtmpConnection::IsAvcKeyFrame(std::unique_ptr<uint8_t[]> &payload,
     }
     uint8_t frame_type = payload.get()[0] >> 4;
     uint8_t codec_id = payload.get()[0] & 0x0f;
-    //printf("frame_type: %d, codec_id: %d\n", frame_type, codec_id);
     return (frame_type == Flv::FRAME_TYPE_I && codec_id == Flv::CODEC_ID_AVC);
 }
 

@@ -1,6 +1,8 @@
 #ifndef RTMP_RTMPMESSAGECODEC_H
 #define RTMP_RTMPMESSAGECODEC_H
 
+#define DEBUG_RTMP_CHUNK 0
+
 #include "base/ByteIO.h"
 #include "base/noncopyable.h"
 #include "net/BufferReader.h"
@@ -63,16 +65,23 @@ public:
             if (rtmp_msg.payload_offset_ == rtmp_msg.payload_len_) {
                 rtmp_msg.is_completed_ = true;
                 out_rtmp_msg = std::move(rtmp_msg);
-                //fprintf(stderr, "End of message: csid=%d, len=%d, type=%d\n", out_rtmp_msg.csid_, out_rtmp_msg.payload_len_, out_rtmp_msg.type_id_);
+#if DEBUG_RTMP_CHUNK
+                fprintf(stderr,
+                        "EndOfMessage: csid=%d, len=%d, type=%d, ts=%ld\n",
+                        out_rtmp_msg.csid_, out_rtmp_msg.payload_len_,
+                        out_rtmp_msg.type_id_, out_rtmp_msg.real_timestamp);
+#endif
 
                 // fmt3 上下文全部继承; fmt1 时间戳和流ID继承
                 rtmp_msg = RtmpMessage();
                 rtmp_msg.payload_len_ = out_rtmp_msg.payload_len_;
                 rtmp_msg.type_id_ = out_rtmp_msg.type_id_;
+                rtmp_msg.stream_id_ = out_rtmp_msg.stream_id_;
                 rtmp_msg.timestamp = out_rtmp_msg.timestamp;
                 rtmp_msg.extend_timestamp = out_rtmp_msg.extend_timestamp;
                 rtmp_msg.real_timestamp = out_rtmp_msg.real_timestamp;
-                rtmp_msg.stream_id_ = out_rtmp_msg.stream_id_;
+                rtmp_msg.is_delta_ts_ = out_rtmp_msg.is_delta_ts_;
+                rtmp_msg.is_first_chunk_header_ = true;
 
                 current_csid_ = 0;
                 state_ = State::PARSE_HEADER;
@@ -248,10 +257,15 @@ private:
                 return 0;
             }
         }
-        //fprintf(stderr, "fmt=%d, csid=%d, len=%d, type=%d\n", fmt, csid, rtmp_msg.payload_len_, rtmp_msg.type_id_);
+#if DEBUG_RTMP_CHUNK
+        fprintf(stderr,
+                "EndOfChunk: fmt=%d, csid=%d, len=%d, type=%d, ts=%d\n",
+                fmt, csid, rtmp_msg.payload_len_, rtmp_msg.type_id_, ts_value);
+#endif
 
         // 更新时间戳
         if (fmt == 0) {
+            rtmp_msg.is_delta_ts_ = false;
             rtmp_msg.payload_offset_ = 0;
             if (need_extend_ts) {
                 rtmp_msg.extend_timestamp = extend_ts;
@@ -261,19 +275,24 @@ private:
                 rtmp_msg.real_timestamp = ts_value;
             }
         } else if (fmt == 1 || fmt == 2) {
+            rtmp_msg.is_delta_ts_ = true;
             if (need_extend_ts) {
-                rtmp_msg.extend_timestamp += extend_ts;
+                rtmp_msg.extend_timestamp = extend_ts;
                 rtmp_msg.real_timestamp += extend_ts;
             } else {
-                rtmp_msg.timestamp += ts_value;
+                rtmp_msg.timestamp = ts_value;
                 rtmp_msg.real_timestamp += ts_value;
             }
         } else if (fmt == 3) {
             if (rtmp_msg.payload_len_ == 0) {
                 return -1;
             }
+            if (rtmp_msg.is_first_chunk_header_ && rtmp_msg.is_delta_ts_) {
+                rtmp_msg.real_timestamp += rtmp_msg.timestamp;
+            }
         }
 
+        rtmp_msg.is_first_chunk_header_ = false;
         state_ = State::PARSE_BODY;
         current_csid_ = rtmp_msg.csid_ = csid;
 

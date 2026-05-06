@@ -61,6 +61,8 @@ struct RtmpMessage : noncopyable {
         std::swap(a.extend_timestamp, b.extend_timestamp);
         std::swap(a.is_completed_, b.is_completed_);
         std::swap(a.has_extend_ts_, b.has_extend_ts_);
+        std::swap(a.is_delta_ts_, b.is_delta_ts_);
+        std::swap(a.is_first_chunk_header_, b.is_first_chunk_header_);
         std::swap(a.csid_, b.csid_);
         std::swap(a.type_id_, b.type_id_);
         std::swap(a.stream_id_, b.stream_id_);
@@ -85,6 +87,7 @@ struct RtmpMessage : noncopyable {
           payload_(std::move(payload)),
           payload_len_(payload_len),
           stream_id_(stream_id),
+          real_timestamp(timestamp),
           is_completed_(true) {
     }
 
@@ -138,6 +141,8 @@ private:
     uint32_t extend_timestamp{};
     bool is_completed_ = false;
     bool has_extend_ts_ = false;
+    bool is_delta_ts_ = false;
+    bool is_first_chunk_header_ = true;
     uint8_t csid_{};
     uint8_t type_id_{};
     uint32_t stream_id_{};
